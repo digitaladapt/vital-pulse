@@ -1,0 +1,15 @@
+parameters:
+    app.api_key: '%env(resolve:API_KEY)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+
+    # Override ApiKeySubscriber to inject the API key parameter explicitly
+    App\Security\ApiKeySubscriber:
+        arguments:
+            $apiKey: '%app.api_key%'

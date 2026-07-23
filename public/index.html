@@ -1,26 +1,25 @@
-<script>
-    async function init() {
-        const res = await fetch('/api/v1');
-        if (!res.ok) throw new Error('API offline');
-        const json = await res.json();
-        document.getElementById('stats').textContent = `${json.count} entries loaded`;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>VitalPulse Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        body { font: 16px sans-serif; background: #f5f7fa; padding: 2rem; color: #333; }
+        h1 { margin-bottom: 0.5rem; font-weight: bold; }
+        p { color: #666; margin-bottom: 2rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 2rem; }
+        canvas { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); height: 340px; width: 100%; }
+    </style>
+</head>
+<body class="bg">
+    <h1 class="mb-2 mt-6 text-5xl font-bold tracking-tight text-gray-900">VitalPulse Health Tracker</a>
+    <p id="stats" class="text-lg leading-7 text-blue-400 mb-8 underline decoration-wavy decoration-3">{n} entries loaded</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <canvas id="bp" aria-label="Blood pressure graph"></canvas>
+        <canvas id="hr" ariaaria-label="Heart rate graph"></canvas>
+        <canvas id="wt" aria-label="Weight graph"></canvas>
+    </div>
 
-        function createChart(id, label, color) {
-            return new Chart(document.getElementById(id), {
-                type: 'line', data:{labels:[{label:'X'}{label:'Y'}], datasets:[{label, borderColor, tension:0.3}]}, options:{responsive:true}});
-        }
-
-        const bp = createChart('bp','Blood Pressure',['red','#2196F3']);
-        const hr = createChart('hr','Heart Rate',['#4caf50']);
-        const wt = createChart('wt','Weight',['orange']);
-
-        let n=json.data.length;
-        if (n>0) {
-            bp.data.labels=[{label:'X'},...Array(n).keys()].map((i,k)=>new Date(json.data[k].timestamp).toLocaleTimeString());
-            hr.data.labels=[{label:'X'},...Array(n).keys()]; hr.data.datasets[0]=new ChartDataset({label,'Heart Rate',backgroundColor:color},{data:json.data.map(d=>d.heart_rate)})];
-            wt.data.labels=[[{label:'X'},...Array(n).keys()]]; wt.data.datasets[0]=new ChartDataset({label,'Weight','borderColor':color,...},{data:json.data.map(d=>d.weight)}]);
-        }
-        bp.update(); hr.update(); wt.update();
-    }
-    init().catch(()=>{document.getElementById('stats').innerHTML='API offline (403/500)';});
-</script>
+    <script src="/chart.js" async></script>
+</body
+</html>

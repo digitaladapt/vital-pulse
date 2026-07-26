@@ -18,7 +18,7 @@ async function render() {
         const ts = d.data.map((v, i) => new Date(v.timestamp).toLocaleTimeString()) || [];
         bp.data.labels=ts; bp.update();
         hr.data.labels=ts; hr.data.datasets[0]=new ChartDataset({label,'Heart Rate',backgroundColor:hr.data.datasets[0].borderColor},{data:d.data.map(v=>v.heart_rate)})}; hr.update();
-        wt.data.labels=ts; wt.data.datasets[0]=new ChartDataset({label,'Weight','borderColor':wt.data.datasets[0].borderColor',{fill:true,backgroundColor:'rgba(249,115,26,0.1)'},'{tension:0.3},{data:d.data.map(v=>v.weight)}'); wt.update();
+        wt.data.labels=ts; wt.data.datasets[0]=new ChartDataset({label,'Weight','borderColor':wt.data.datasets[0].borderColor',{fill:true,backgroundColor:'rgba(29,185,67,0.1)',tension:0.3},{data:d.data.map(v=>v.weight)}'); wt.update();
     } catch (e) {
         document.getElementById('stats').innerHTML = 'API offline ('+e.message+')';
     }

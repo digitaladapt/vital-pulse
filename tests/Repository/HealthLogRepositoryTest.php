@@ -16,7 +16,7 @@ class HealthLogRepositoryTest extends KernelTestCase
         parent::setUp();
         self::bootKernel(['environment' => 'test']);
 
-        $this->em = static::$container->get('doctrine')->getManager();
+        $this->em = static::getContainer()->get('doctrine')->getManager();
         $this->repo = $this->em->getRepository(HealthLog::class);
 
         // Build schema for in-memory SQLite (clean each test)

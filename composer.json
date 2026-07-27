@@ -17,6 +17,7 @@
         "symfony/property-info": "^8.1",
         "symfony/runtime": "^8.1",
         "symfony/serializer": "^8.0",
+        "symfony/validator": "^8.1",
         "symfony/var-exporter": "^7.2",
         "symfony/yaml": "^7.2"
     },
@@ -60,6 +61,7 @@
         "ext-mbstring": "*",
         "ext-xmlwriter": "*",
         "phpunit/phpunit": "^10",
+        "symfony/browser-kit": "^8.1",
         "symfony/phpunit-bridge": "^8.1"
     }
 }

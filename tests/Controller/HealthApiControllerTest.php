@@ -5,6 +5,7 @@ namespace App\Tests\Controller;
 use App\Entity\HealthLog;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class HealthApiControllerTest extends WebTestCase
@@ -16,11 +17,11 @@ class HealthApiControllerTest extends WebTestCase
     {
         parent::setUp();
 
-        $kernel = self::bootKernel(['environment' => 'test']);
-        $this->em = $kernel->getContainer()->get('doctrine')->getManager();
+        $this->client = static::createClient();
+        $this->em = static::getContainer()->get(EntityManagerInterface::class);
 
         // Ensure schema is created for in-memory SQLite
-        $schemaTool = new \Doctrine\ORM\Tools\SchemaBuilder($this->em->getConfiguration());
+        $schemaTool = new SchemaTool($this->em);
         $metadataFactory = $this->em->getMetadataFactory();
         $classes = [];
         foreach ($metadataFactory->getAllMetadata() as $class) {
@@ -37,14 +38,14 @@ class HealthApiControllerTest extends WebTestCase
         parent::tearDown();
 
         // Clear the in-memory database for each test
-        foreach ($this->em->getConnection()->getTables() as $table) {
+        foreach ($this->em->getConnection()->createSchemaManager()->listTableNames() as $table) {
             $this->em->getConnection()->executeStatement("DELETE FROM {$table}");
         }
     }
 
     public function testPostLogMissingApiKeyReturns401(): void
     {
-        $client = static::createClient();
+        $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['systolic' => 120]));
@@ -54,7 +55,7 @@ class HealthApiControllerTest extends WebTestCase
 
     public function testPostLogInvalidApiKeyReturns401(): void
     {
-        $client = static::createClient();
+        $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
             'HTTP_X-API-KEY' => 'wrong_key',
             'HTTP_CONTENT_TYPE' => 'application/json',
@@ -65,7 +66,7 @@ class HealthApiControllerTest extends WebTestCase
 
     public function testPostLogWithEmptyBodyReturns400(): void
     {
-        $client = static::createClient();
+        $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
@@ -76,7 +77,7 @@ class HealthApiControllerTest extends WebTestCase
 
     public function testPostLogWithOnlyEmojiReturns400(): void
     {
-        $client = static::createClient();
+        $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
@@ -87,7 +88,7 @@ class HealthApiControllerTest extends WebTestCase
 
     public function testPostLogSystolicOnlyReturns400(): void
     {
-        $client = static::createClient();
+        $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
@@ -100,7 +101,7 @@ class HealthApiControllerTest extends WebTestCase
 
     public function testPostLogMinimalValidEntrySucceeds(): void
     {
-        $client = static::createClient();
+        $client = $this->client;
         $payload = ['heart_rate' => 72];
         $client->request('POST', '/api/v1/logs', [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
@@ -117,7 +118,7 @@ class HealthApiControllerTest extends WebTestCase
 
     public function testPostLogFullEntrySucceeds(): void
     {
-        $client = static::createClient();
+        $client = $this->client;
         $payload = [
             'systolic' => 128,
             'diastolic' => 84,
@@ -141,7 +142,7 @@ class HealthApiControllerTest extends WebTestCase
 
     public function testPostLogWithCustomTimestampSucceeds(): void
     {
-        $client = static::createClient();
+        $client = $this->client;
         $payload = [
             'heart_rate' => 65,
             'timestamp' => '2025-03-15T08:30:00Z',
@@ -161,7 +162,7 @@ class HealthApiControllerTest extends WebTestCase
 
     public function testGetLogsReturnsEmptyArrayWhenNoData(): void
     {
-        $client = static::createClient();
+        $client = $this->client;
         $client->request('GET', '/api/v1/logs', [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
@@ -184,7 +185,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->persist($log2);
         $this->em->flush();
 
-        $client = static::createClient();
+        $client = $this->client;
         $client->request('GET', '/api/v1/logs', [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
@@ -208,7 +209,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         // Query only June onwards
-        $client = static::createClient();
+        $client = $this->client;
         $client->request('GET', '/api/v1/logs?from=2025-06-01', [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
@@ -235,7 +236,7 @@ class HealthApiControllerTest extends WebTestCase
 
         $this->em->flush();
 
-        $client = static::createClient();
+        $client = $this->client;
         $emojiEncoded = rawurlencode('😀');
         $client->request("GET", "/api/v1/logs?emoji={$emojiEncoded}", [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
@@ -258,7 +259,7 @@ class HealthApiControllerTest extends WebTestCase
 
         $this->em->flush();
 
-        $client = static::createClient();
+        $client = $this->client;
         $client->request('GET', '/api/v1/logs', [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
@@ -272,7 +273,7 @@ class HealthApiControllerTest extends WebTestCase
 
     public function testApiKeyViaQueryParamAlsoWorks(): void
     {
-        $client = static::createClient();
+        $client = $this->client;
         $payload = ['heart_rate' => 68];
         $client->request('POST', '/api/v1/logs?api_key=' . self::API_KEY, [], [], [
             'HTTP_CONTENT_TYPE' => 'application/json',

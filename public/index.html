@@ -1,25 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><title>VitalPulse Dashboard</title>
+    <meta charset="UTF-8">
+    <title>VitalPulse Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <style>
-        body { font: 16px sans-serif; background: #f5f7fa; padding: 2rem; color: #333; }
-        h1 { margin-bottom: 0.5rem; font-weight: bold; }
-        p { color: #666; margin-bottom: 2rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 2rem; }
-        canvas { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); height: 340px; width: 100%; }
+        body { font: 16px sans-serif; background: #f5f7fa; padding: 2rem; color: #333; margin: 0; }
+        h1 { margin-bottom: 0.5rem; font-weight: bold; color: #1e3a5f; }
+
+        /* Form styles */
+        .form-section { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+        .form-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; }
+        .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+        label { font-size: 0.85rem; color: #666; font-weight: 600; }
+        input[type="number"], select, input[type="date"] { padding: 0.45rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; min-width: 80px; }
+        button.btn-primary { background: #2563eb; color: white; padding: 0.5rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: background 0.2s; }
+        button.btn-primary:hover { background: #1d4ed8; }
+        .emoji-select { display: flex; gap: 0.3rem; align-items: center; }
+        .emoji-option { font-size: 1.6rem; cursor: pointer; opacity: 0.5; transition: all 0.2s; padding: 2px 4px; border-radius: 4px; user-select: none; }
+        .emoji-option:hover { opacity: 0.8; background: #eef; }
+        .emoji-option.selected { opacity: 1; background: #dbeafe; transform: scale(1.15); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+
+        /* Filters */
+        .filters-section { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; background: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+        .filters-section label { font-size: 0.8rem; color: #666; font-weight: 600; display: block; margin-bottom: 2px; }
+
+        /* Charts */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; }
+        .chart-card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .chart-title { font-size: 0.9rem; font-weight: 600; color: #4b5563; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+        canvas { height: 280px; width: 100%; }
+
+        /* Stats */
+        .stats-bar { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+        .stat-item { background: white; padding: 0.8rem 1.2rem; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 0.85rem; color: #4b5563; }
+        .stat-value { font-size: 1.25rem; font-weight: bold; color: #1e3a5f; }
+
+        /* Status */
+        #status { margin-top: 0.5rem; padding: 0.6rem; border-radius: 4px; font-size: 0.9rem; display: none; }
+        #status.success { background: #dcfce7; color: #166534; display: block; }
+        #status.error { background: #fee2e2; color: #991b1b; display: block; }
     </style>
 </head>
-<body class="bg">
-    <h1 class="mb-2 mt-6 text-5xl font-bold tracking-tight text-gray-900">VitalPulse Health Tracker</a>
-    <p id="stats" class="text-lg leading-7 text-blue-400 mb-8 underline decoration-wavy decoration-3">{n} entries loaded</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <canvas id="bp" aria-label="Blood pressure graph"></canvas>
-        <canvas id="hr" ariaaria-label="Heart rate graph"></canvas>
-        <canvas id="wt" aria-label="Weight graph"></canvas>
+<body>
+    <h1>❤️ VitalPulse Health Tracker</h1>
+
+    <!-- Log Entry Form -->
+    <div class="form-section">
+        <label style="font-size:1rem;color:#374151;margin-bottom:0.8rem;display:block;">Log New Reading</label>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sys">Systolic (mmHg)</label>
+                <input type="number" id="sys" min="60" max="250" placeholder="120">
+            </div>
+            <div class="form-group">
+                <label for="dia">Diastolic (mmHg)</label>
+                <input type="number" id="dia" min="40" max="150" placeholder="80">
+            </div>
+            <div class="form-group">
+                <label for="hr-input">Heart Rate</label>
+                <input type="number" id="hr-input" min="30" max="250" placeholder="72">
+            </div>
+            <div class="form-group">
+                <label for="wt-input">Weight (lbs)</label>
+                <input type="number" id="wt-input" step="0.1" min="30" max="400" placeholder="180">
+            </div>
+        </div>
+
+        <div class="form-row" style="align-items:center;">
+            <div class="form-group">
+                <label>Mood</label>
+                <div class="emoji-select" id="mood-selector"></div>
+            </div>
+            <button class="btn-primary" onclick="submitLog()">Submit Log</button>
+            <span id="status"></span>
+        </div>
     </div>
 
-    <script src="/chart.js" async></script>
-</body
+    <!-- Filters -->
+    <div class="filters-section">
+        <div class="form-group">
+            <label for="filter-from">From</label>
+            <input type="date" id="filter-from">
+        </div>
+        <div class="form-group">
+            <label for="filter-to">To</label>
+            <input type="date" id="filter-to">
+        </div>
+        <div class="form-group">
+            <label for="filter-emoji">Emoji Filter</label>
+            <select id="filter-emoji"><option value="">All Moods</option></select>
+        </div>
+        <button class="btn-primary" style="align-self:flex-end;" onclick="renderCharts()">Apply Filters</button>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div class="stat-item"><span id="total-count">-</span><br>Total Entries</div>
+        <div class="stat-item"><span id="avg-sys">-</span><br>Avg Systolic</div>
+        <div class="stat-item"><span id="avg-dia">-</span><br>Avg Diastolic</div>
+        <div class="stat-item"><span id="avg-hr">-</span><br>Avg Heart Rate</div>
+        <div class="stat-item"><span id="avg-wt">-</span><br>Avg Weight</div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid">
+        <div class="chart-card">
+            <div class="chart-title">Blood Pressure (mmHg) <small style="color:#9ca3af;font-weight:400;">Red=Systolic · Blue=Diastolic</small></div>
+            <canvas id="bp"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Heart Rate (bpm)</div>
+            <canvas id="hr"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Weight (lbs)</div>
+            <canvas id="wt"></canvas>
+        </div>
+    </div>
+
+    <script src="/chart.js"></script>
+</body>
 </html>

@@ -17,9 +17,10 @@ class ApiKeySubscriberTest extends TestCase
         $subscriber = new ApiKeySubscriber(self::VALID_KEY);
         $request = Request::create('/api/v1/logs', 'GET');
         $request->headers->set('X-API-Key', self::VALID_KEY);
+        $request->attributes->set('_route', 'api_logs_');
 
         $event = $this->createMock(RequestEvent::class);
-        $event->expects($this->once())
+        $event->expects($this->atLeastOnce())
             ->method('getRequest')
             ->willReturn($request);
 
@@ -34,9 +35,10 @@ class ApiKeySubscriberTest extends TestCase
     {
         $subscriber = new ApiKeySubscriber(self::VALID_KEY);
         $request = Request::create('/api/v1/logs?api_key=' . self::VALID_KEY, 'GET');
+        $request->attributes->set('_route', 'api_logs_');
 
         $event = $this->createMock(RequestEvent::class);
-        $event->expects($this->once())
+        $event->expects($this->atLeastOnce())
             ->method('getRequest')
             ->willReturn($request);
 
@@ -51,9 +53,10 @@ class ApiKeySubscriberTest extends TestCase
     {
         $subscriber = new ApiKeySubscriber(self::VALID_KEY);
         $request = Request::create('/api/v1/logs', 'GET');
+        $request->attributes->set('_route', 'api_logs_');
 
         $event = $this->createMock(RequestEvent::class);
-        $event->expects($this->once())
+        $event->expects($this->atLeastOnce())
             ->method('getRequest')
             ->willReturn($request);
 
@@ -69,9 +72,10 @@ class ApiKeySubscriberTest extends TestCase
         $subscriber = new ApiKeySubscriber(self::VALID_KEY);
         $request = Request::create('/api/v1/logs', 'GET');
         $request->headers->set('X-API-Key', 'wrong_key');
+        $request->attributes->set('_route', 'api_logs_');
 
         $event = $this->createMock(RequestEvent::class);
-        $event->expects($this->once())
+        $event->expects($this->atLeastOnce())
             ->method('getRequest')
             ->willReturn($request);
 
@@ -90,7 +94,7 @@ class ApiKeySubscriberTest extends TestCase
         $request->attributes->set('_route', '');
 
         $event = $this->createMock(RequestEvent::class);
-        $event->expects($this->once())
+        $event->expects($this->atLeastOnce())
             ->method('getRequest')
             ->willReturn($request);
 
@@ -107,9 +111,10 @@ class ApiKeySubscriberTest extends TestCase
         $subscriber = new ApiKeySubscriber(self::VALID_KEY);
         $request = Request::create('/api/v1/logs?api_key=wrong', 'GET');
         $request->headers->set('X-API-Key', self::VALID_KEY);
+        $request->attributes->set('_route', 'api_logs_');
 
         $event = $this->createMock(RequestEvent::class);
-        $event->expects($this->once())
+        $event->expects($this->atLeastOnce())
             ->method('getRequest')
             ->willReturn($request);
 
@@ -126,9 +131,10 @@ class ApiKeySubscriberTest extends TestCase
         $request = Request::create('/api/v1/logs', 'GET');
         // Set empty values that should be treated as missing
         $request->headers->set('X-API-Key', '');
+        $request->attributes->set('_route', 'api_logs_');
 
         $event = $this->createMock(RequestEvent::class);
-        $event->expects($this->once())
+        $event->expects($this->atLeastOnce())
             ->method('getRequest')
             ->willReturn($request);
 

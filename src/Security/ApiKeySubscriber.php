@@ -47,7 +47,12 @@ class ApiKeySubscriber implements EventSubscriberInterface
     private function isApiRoute(RequestEvent $event): bool
     {
         // Check route name or path prefix; adjust as needed once routes are loaded
-        $routeName = $event->getRequest()->attributes->get('_route') ?? '';
+        $routeName = $event->getRequest()->attributes->get('_route') ?? null;
+
+        if (is_null($routeName)) {
+            throw new \LogicException('Routing must take place before ApiKey check.');
+        }
+
         return str_starts_with($routeName, 'api_logs_');
     }
 

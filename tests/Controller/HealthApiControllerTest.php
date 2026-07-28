@@ -154,10 +154,10 @@ class HealthApiControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(201);
         $data = json_decode($client->getResponse()->getContent(), true);
-        // Response timestamp may have different formatting; verify it's close to the input
+        // format('c') outputs '+00:00' instead of 'Z'; compare as DateTimeImmutable
         $ts = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['timestamp']);
         self::assertNotNull($ts);
-        self::assertEquals('2025-03-15T08:30:00Z', $ts->format(\DateTimeInterface::ATOM));
+        self::assertEquals(new \DateTimeImmutable('2025-03-15T08:30:00Z'), $ts);
     }
 
     public function testGetLogsReturnsEmptyArrayWhenNoData(): void

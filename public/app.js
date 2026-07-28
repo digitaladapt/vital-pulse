@@ -31,20 +31,26 @@ function initMoodSelector() {
 }
 
 function initFilterEmoji() {
+    /* TODO in next version:
+     * make api accept zero to ten emoji, selecting all should disable filtering.
+     * enable filtering by any number of emoji, IE: pick one, or two or all.
+     * picking all should work the same as having none selected and filter nonthing. */
     const sel = document.getElementById('filter-emoji');
     EMOJIS.forEach(e => {
         const opt = document.createElement('option');
-        opt.value = encodeURIComponent(e);
-        opt.textContent = e + ' ' + e;
+        opt.value = e;
+        opt.textContent = e;
         sel.appendChild(opt);
     });
 }
 
 function setDefaultDates() {
     const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
-    document.getElementById('filter-to').valueAsDate = today;
+    document.getElementById('filter-to').valueAsDate = tomorrow;
     document.getElementById('filter-from').valueAsDate = thirtyDaysAgo;
 }
 
@@ -153,7 +159,7 @@ function renderBpChart(logs) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             interaction: { mode: 'index' },
             plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
             scales: { x: { ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } } } }
@@ -175,7 +181,7 @@ function renderHrChart(logs) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             interaction: { mode: 'index' },
             plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
             scales: { x: { ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } } } }
@@ -197,7 +203,7 @@ function renderWtChart(logs) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             interaction: { mode: 'index' },
             plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
             scales: { x: { ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } } } }
@@ -207,6 +213,8 @@ function renderWtChart(logs) {
 
 // ── Submit Log ────────────────────────────────────────────
 async function submitLog() {
+    /* TODO in next version:
+     * offer date selector allow no input, default to today */
     const sys = document.getElementById('sys').value;
     const dia = document.getElementById('dia').value;
     const hrVal = document.getElementById('hr-input').value;

@@ -13,3 +13,6 @@
 /phpunit.xml
 /.phpunit.cache/
 ###< phpunit/phpunit ###
+
+# host.env (aka .env) has api-key, so don't commit that
+host.env

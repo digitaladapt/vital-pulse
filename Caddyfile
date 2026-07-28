@@ -1,0 +1,7 @@
+# --- vital-pulse	---	---	---	---	---	---	---	---
+vitals.devgnome.com {
+	root /data/vitals
+	reverse_proxy /api/* dockerhost:9000
+	file_server
+}
+

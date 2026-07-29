@@ -10,7 +10,9 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="VitalPulse" />
     <link rel="manifest" href="/site.webmanifest" />
-    <script src="/chart-v4.js"></script>
+    <script src="/chartjs-v4.js"></script>
+    <script src="/luxon-v3.js"></script>
+    <script src="/chartjs-adapter-luxon-v1.js"></script>
     <style>
         body { font: 16px sans-serif; background: #f5f7fa; padding: 2rem; color: #333; margin: 0; }
         h1 { margin-bottom: 0.5rem; font-weight: bold; color: #1e3a5f; }
@@ -20,7 +22,7 @@
         .form-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; }
         .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
         label { font-size: 0.85rem; color: #666; font-weight: 600; }
-        input[type="number"], select, input[type="date"] { padding: 0.45rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; min-width: 80px; }
+        input[type="number"], select, input[type="date"], input[type="datetime-local"] { padding: 0.45rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; min-width: 80px; }
         button.btn-primary { background: #2563eb; color: white; padding: 0.5rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: background 0.2s; }
         button.btn-primary:hover { background: #1d4ed8; }
         .emoji-select { display: flex; gap: 0.3rem; align-items: center; flex-wrap: wrap; }
@@ -71,6 +73,10 @@
             <div class="form-group">
                 <label for="wt-input">Weight (lbs)</label>
                 <input type="number" id="wt-input" step="0.1" min="30" max="400" placeholder="180">
+            </div>
+            <div class="form-group">
+                <label for="reading-datetime">Date/Time (optional)</label>
+                <input type="datetime-local" id="reading-datetime">
             </div>
         </div>
 

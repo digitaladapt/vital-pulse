@@ -106,12 +106,16 @@ class HealthApiController
         try {
             $dateFrom = $this->parseDate($request->query->get('from'));
             $dateTo = $this->parseDate($request->query->get('to'));
+            $emoji =  $request->query->all()['emoji'] ?? [];
+            if ( ! is_array($emoji)) {
+                $emoji = [$emoji];
+            }
 
             if ($dateTo !== null && $dateFrom !== null && $dateFrom > $dateTo) {
                 return new JsonResponse(['error' => 'Invalid date range: "from" must be before or equal to "to".'], 400);
             }
 
-            $logs = $this->entityManager->getRepository(HealthLog::class)->findByDateRange($dateFrom, $dateTo, $request->query->get('emoji'));
+            $logs = $this->entityManager->getRepository(HealthLog::class)->findByDateRange($dateFrom, $dateTo, $emoji);
         } catch (\Exception $e) {
             return new JsonResponse(['error' => 'Invalid date format. Use YYYY-MM-DD or ISO 8601 string.'], 400);
         }

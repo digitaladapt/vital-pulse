@@ -20,7 +20,7 @@ class HealthLogRepository extends ServiceEntityRepository
      * Fetch logs within a date range, optionally filtered by emoji.
      * Results are ordered by timestamp descending (newest first).
      */
-    public function findByDateRange(?\DateTimeInterface $from = null, ?\DateTimeInterface $to = null, ?string $emoji = null): array
+    public function findByDateRange(?\DateTimeInterface $from = null, ?\DateTimeInterface $to = null, array $emojis = []): array
     {
         $qb = $this->createQueryBuilder('l')
             ->orderBy('l.timestamp', 'DESC');
@@ -35,9 +35,9 @@ class HealthLogRepository extends ServiceEntityRepository
                ->setParameter('to', $to);
         }
 
-        if (!empty($emoji)) {
-            $qb->andWhere('l.emoji = :emoji')
-               ->setParameter('emoji', $emoji);
+        if ($emojis !== []) {
+            $qb->andWhere('l.emoji IN (:emojis)')
+               ->setParameter('emojis', $emojis);
         }
 
         return $qb->getQuery()->getResult();

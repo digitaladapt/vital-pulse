@@ -86,7 +86,7 @@ class HealthLogRepositoryTest extends KernelTestCase
         $this->em->persist($c);
         $this->em->flush();
 
-        $result = $this->repo->findByDateRange(null, null, '😀');
+        $result = $this->repo->findByDateRange(null, null, ['😀']);
         self::assertCount(2, $result);
 
         foreach ($result as $log) {

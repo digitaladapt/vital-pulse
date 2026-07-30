@@ -4,6 +4,7 @@ let apiKey = localStorage.getItem(API_KEY_STORAGE);
 
 const EMOJIS = ['🤩', '😀', '🙂', '😐', '☹️', '😩', '🥵', '😵‍💫', '🤢', '🥶'];
 let selectedEmoji = '😐';
+let filterEmojis = new Set(); // emoji(s) currently selected for filtering
 let bpChart, hrChart, wtChart;
 
 const commonOptions = {
@@ -50,16 +51,22 @@ function initMoodSelector() {
 }
 
 function initFilterEmoji() {
-    /* TODO in next version:
-     * make api accept zero to ten emoji, selecting all should disable filtering.
-     * enable filtering by any number of emoji, IE: pick one, or two or all.
-     * picking all should work the same as having none selected and filter nonthing. */
+    const container = document.getElementById('filter-emoji');
     const sel = document.getElementById('filter-emoji');
     EMOJIS.forEach(e => {
-        const opt = document.createElement('option');
-        opt.value = e;
-        opt.textContent = e;
-        sel.appendChild(opt);
+        const span = document.createElement('span');
+        span.className = 'emoji-filter-option';
+        span.textContent = e;
+        span.onclick = () => {
+            if (filterEmojis.has(e)) {
+                filterEmojis.delete(e);
+                span.classList.remove('selected');
+            } else {
+                filterEmojis.add(e);
+                span.classList.add('selected');
+            }
+        };
+        container.appendChild(span);
     });
 }
 
@@ -103,6 +110,14 @@ async function fetchLogs() {
     if (from) url += `from=${encodeURIComponent(from)}&`;
     if (to) url += `to=${encodeURIComponent(to)}&`;
     if (emojiFilter) url += `emoji=${encodeURIComponent(emojiFilter)}&`;
+
+    // If some emojis selected but not all, send them as emoji[]=x&emoji[]=y
+    const filterArray = Array.from(filterEmojis);
+    if (filterArray.length > 0 && filterArray.length < EMOJIS.length) {
+        for (const e of filterArray) {
+            url += `emoji[]=${encodeURIComponent(e)}&`;
+        }
+    }
 
     try {
         const resp = await fetch(url, {
@@ -216,8 +231,6 @@ function renderWtChart(logs) {
 
 // ── Submit Log ────────────────────────────────────────────
 async function submitLog() {
-    /* TODO in next version:
-     * offer date selector allow no input, default to today */
     const sys = document.getElementById('sys').value;
     const dia = document.getElementById('dia').value;
     const hrVal = document.getElementById('hr-input').value;
@@ -280,5 +293,5 @@ function showStatus(msg, type) {
     const el = document.getElementById('status');
     el.textContent = msg;
     el.className = type; // success or error
-    if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 3000);
+    if (type === 'success') setTimeout(() => { el.className = null; }, 3000);
 }

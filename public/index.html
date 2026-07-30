@@ -30,6 +30,12 @@
         .emoji-option:hover { opacity: 0.8; background: #eef; }
         .emoji-option.selected { opacity: 1; background: #dbeafe; transform: scale(1.15); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
 
+        /* Multi-select emoji filter */
+        .emoji-filter-container { display: flex; gap: 0.3rem; align-items: center; flex-wrap: wrap; }
+        .emoji-filter-option { font-size: 1.4rem; cursor: pointer; opacity: 0.5; transition: all 0.2s; padding: 2px 4px; border-radius: 4px; user-select: none; }
+        .emoji-filter-option:hover { opacity: 0.8; background: #eef; }
+        .emoji-filter-option.selected { opacity: 1; background: #dbeafe; transform: scale(1.1); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+
         /* Filters */
         .filters-section { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; background: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
         .filters-section label { font-size: 0.8rem; color: #666; font-weight: 600; display: block; margin-bottom: 2px; }
@@ -101,8 +107,8 @@
             <input type="date" id="filter-to">
         </div>
         <div class="form-group">
-            <label for="filter-emoji">Emoji Filter</label>
-            <select id="filter-emoji"><option value="">All Moods</option></select>
+            <label for="filter-emoji">Emoji Filter (click to toggle)</label>
+            <div class="emoji-filter-container" id="filter-emoji"></div>
         </div>
         <button class="btn-primary" style="align-self:flex-end;" onclick="renderCharts()">Apply Filters</button>
     </div>

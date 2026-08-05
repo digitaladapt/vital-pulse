@@ -55,7 +55,7 @@ function initFilterEmoji() {
     const sel = document.getElementById('filter-emoji');
     EMOJIS.forEach(e => {
         const span = document.createElement('span');
-        span.className = 'emoji-filter-option';
+        span.className = 'emoji-filter-option selected';
         span.textContent = e;
         span.onclick = () => {
             if (filterEmojis.has(e)) {
@@ -66,6 +66,7 @@ function initFilterEmoji() {
                 span.classList.add('selected');
             }
         };
+        filterEmojis.add(e);
         container.appendChild(span);
     });
 }

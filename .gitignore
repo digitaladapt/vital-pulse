@@ -12,6 +12,7 @@
 ###> phpunit/phpunit ###
 /phpunit.xml
 /.phpunit.cache/
+/.phpunit.result.cache
 ###< phpunit/phpunit ###
 
 # host.env (aka .env) has api-key, so don't commit that

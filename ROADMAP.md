@@ -7,16 +7,12 @@ VitalPulse is a personal health vitals tracker built with **Symfony**
 HTML/JS dashboard with Chart.js. It tracks blood pressure, heart rate,
 body weight, and mood (emoji) in a single unified log entry.
 
-- **Location:** `projects/vital-pulse-php/`
+- **Location:** `projects/vital-pulse/`
 - **Framework:** Symfony 7.x/8.x (mixed component versions)
 - **Language:** PHP ≥ 8.3
 - **Database:** SQLite (`var/data/health_tracker.db`), MySQL-capable
 - **Frontend:** Plain HTML + Chart.js v4 + Luxon (no build step)
-- **Auth:** Single API key (plaintext comparison via `hash_equals`)
-
-> **Note on the name:** Despite the `-php` suffix and a git history
-> mention of pivoting to Node.js, the project stayed with PHP and this
-> is the only VitalPulse application.
+- **Auth:** Single API key (timing-safe comparison via `hash_equals`)
 
 ---
 
@@ -32,10 +28,15 @@ body weight, and mood (emoji) in a single unified log entry.
 - ✅ Dockerfile (multi-stage) and docker-compose.yml exist
 - ✅ Caddyfile for reverse proxy deployment
 - ✅ Repository has `getStatsForDateRange()` — aggregate stats (avg/min/max)
+- ✅ **README** — comprehensive documentation with quick start, API
+      reference, data model, and deployment guide
+- ✅ **Open-source project files** — LICENSE (MIT), CONTRIBUTING.md,
+      CODE_OF_CONDUCT.md, CHANGELOG.md
+- ✅ **Legacy CLI tools removed** — `vitalpulse-cli.php` and
+      `bin/health-commander` were incomplete and have been deleted
 
 ### What's Missing or Needs Work
 
-- ❌ **No README** — zero documentation
 - ❌ **No GET-by-ID, no PUT/PATCH, no DELETE endpoints** — can't update or
       remove a log entry via API
 - ❌ **Stats endpoint not exposed** — `getStatsForDateRange()` exists in the
@@ -45,8 +46,6 @@ body weight, and mood (emoji) in a single unified log entry.
       `health_check` group, but the controller validates without specifying
       any group, so **range validation never runs**
 - ❌ **No Doctrine migrations** — schema created ad-hoc via `SchemaTool`
-- ❌ **Broken CLI tools** — `vitalpulse-cli.php` and `bin/health-commander`
-      are incomplete/non-functional
 - ❌ **Symfony version mixing** — composer.json requires a mix of `^7.2`
       and `^8.0`/`^8.1` Symfony components, which is unusual and risky
 - ❌ **Docker image isn't published** — Dockerfile exists but uses a
@@ -216,8 +215,8 @@ endpoint.
   - GitHub Actions workflow for automated builds on tag push
   - Multi-arch builds (amd64 + arm64 for Raspberry Pi deployment)
 - [ ] **GitHub repository:**
-  - Initialise git repo (if not already)
-  - Write comprehensive README:
+  - [x] Git repo initialised
+  - [x] Write comprehensive README:
     - What it is, screenshots
     - Quick start (Docker)
     - API reference
@@ -225,7 +224,6 @@ endpoint.
     - Deployment guide
   - [x] Add LICENSE (MIT, matching composer.json)
   - [x] Add CONTRIBUTING.md, CODE_OF_CONDUCT.md, CHANGELOG.md
-  - [x] Write comprehensive README
   - Set up branch protection on `main`
   - GitHub Actions CI (run tests on push/PR)
 
@@ -380,11 +378,11 @@ summary.
 │  ├── Dashboard (3 line charts + stats)      │
 │  └── Log entry form (BP, HR, weight, emoji) │
 ├─────────────────────────────────────────────┤
-│  Symfony (PHP 8.3+)                          │
+│  Symfony (PHP 8.3+)                         │
 │  ├── HealthApiController (POST, GET)        │
-│  ├── ApiKeySubscriber (auth middleware)      │
-│  ├── Doctrine ORM 3.x                        │
-│  └── HealthLogRepository                     │
+│  ├── ApiKeySubscriber (auth middleware)     │
+│  ├── Doctrine ORM 3.x                       │
+│  └── HealthLogRepository                    │
 │      ├── findByDateRange()                  │
 │      └── getStatsForDateRange() (unused)    │
 ├─────────────────────────────────────────────┤
@@ -420,4 +418,4 @@ morning summary workflow that includes VitalPulse data.
 
 ---
 
-*Prepared by Lyra, your office-side assistant. ✨*
+*Built by Lyra. ✨*

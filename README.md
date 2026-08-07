@@ -9,11 +9,13 @@
 - **Blood pressure tracking** — systolic & diastolic with paired validation
 - **Heart rate logging** — resting or active BPM
 - **Weight tracking** — kg or lb, your call
-- **Mood emoji** — quick subjective wellness check-in
-- **Timeline charts** — Chart.js v4 with a Luxon time axis
+- **Mood emoji** — quick subjective wellness check-in from a 10-emoji set
+- **Timeline charts** — three Chart.js v4 line graphs (blood pressure, heart rate, weight) with a Luxon time axis
+- **Stats bar** — live averages for systolic, diastolic, heart rate, and weight
+- **Filters** — date range picker plus multi-select emoji filter
 - **REST API** — simple JSON endpoints with API-key authentication
 - **SQLite storage** — zero-config, single-file database
-- **Dashboard** — single-page vanilla HTML/JS frontend, no build step
+- **Dashboard** — single-page vanilla HTML/JS frontend, no build step; API key stored in browser `localStorage`
 
 <!-- screenshot placeholder -->
 <!-- ![Dashboard screenshot](docs/screenshot.png) -->
@@ -63,7 +65,7 @@ php -S 0.0.0.0:9000 -t public/
 
 ## API Reference
 
-All endpoints are prefixed with `/api/v1` and require the `X-API-Key` header.
+All endpoints are prefixed with `/api/v1` and require an API key, sent either via the `X-API-Key` header or the `api_key` query parameter.
 
 | Method | Endpoint          | Description                          | Query Params                                   |
 |--------|-------------------|--------------------------------------|------------------------------------------------|
@@ -93,6 +95,8 @@ X-API-Key: your_api_key
 ```
 
 At least one measurement field (`systolic`, `diastolic`, `heart_rate`, or `weight`) is required. If providing blood pressure, both `systolic` and `diastolic` must be set together. The `timestamp` defaults to now (UTC) if omitted, and `emoji` defaults to 😐.
+
+Results are always returned sorted by timestamp descending (newest first).
 
 **Response — `201 Created`:**
 
@@ -153,6 +157,9 @@ Environment variables are loaded from `.env` (or `host.env` in production). See 
 | `API_KEY`       | `change_me_to_a_strong_secret_key_1234567890abcdef`              | API key required for `/api/v1/*` endpoints       |
 | `APP_ENV`       | `dev`                                                            | Symfony environment (`dev`, `prod`, `test`)      |
 | `APP_SECRET`    | *(generated)*                                                    | Symfony secret key for hashes/tokens             |
+| `AUTH_SECRET`   | `vital-pulse-master`                                              | Defined in env but currently unused — slated for removal |
+
+> **Deployment model:** VitalPulse is designed for LAN/VPN deployment with a single shared API key. There is no user account system — the API key is the only authentication. For internet-facing deployments, put it behind a reverse proxy with additional access controls.
 
 ---
 
@@ -168,7 +175,7 @@ The `HealthLog` entity stores a single health check-in entry.
 | `diastolic`   | `integer`             | Yes      | `null`  | Range 40–150, positive              |
 | `heart_rate`  | `integer`             | Yes      | `null`  | Range 30–250, positive              |
 | `weight`      | `float`               | Yes      | `null`  | Range 30–400, positive              |
-| `emoji`       | `string` (length 10)  | No       | `😐`    | Any emoji, defaults to neutral      |
+| `emoji`       | `string` (length 10)  | No       | `😐`    | Any emoji; defaults to 😐. Frontend uses: 🤩 😀 🙂 😐 ☹️ 😩 🥵 😵‍💫 🤢 🥶 |
 
 > **Note:** At least one measurement field must be provided. If systolic or diastolic is provided, the other must also be provided.
 

@@ -126,9 +126,9 @@ robust before adding features or publishing.
 - [ ] **Add Doctrine migrations** — generate the initial migration from
       the existing entity, replace ad-hoc `SchemaTool` usage in tests
       with proper migration-based schema management.
-- [ ] **Remove or fix broken CLI tools** — `vitalpulse-cli.php` and
-      `bin/health-commander` are incomplete. Either finish them or
-      remove them to avoid confusion.
+- [x] **Remove or fix broken CLI tools** — `vitalpulse-cli.php` and
+      `bin/health-commander` were incomplete and have been removed.
+      A proper CLI can be built later using `bin/console` if needed.
 - [ ] **Clarify `AUTH_SECRET`** — this env var is defined but its
       purpose is unclear. Either document it or remove it.
 - [ ] **Fix frontend `initFilterEmoji()` bug** — the function queries
@@ -223,10 +223,11 @@ endpoint.
     - API reference
     - Configuration
     - Deployment guide
-  - Add LICENSE (MIT, matching composer.json)
+  - [x] Add LICENSE (MIT, matching composer.json)
+  - [x] Add CONTRIBUTING.md, CODE_OF_CONDUCT.md, CHANGELOG.md
+  - [x] Write comprehensive README
   - Set up branch protection on `main`
   - GitHub Actions CI (run tests on push/PR)
-  - `.github/CONTRIBUTING.md` for public project polish
 
 ### Phase 4 — Polish & v1.0 Release
 

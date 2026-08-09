@@ -3,8 +3,9 @@
 namespace App\Security;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\KernelEvents;
 
 class ApiKeySubscriber implements EventSubscriberInterface
 {
@@ -17,48 +18,53 @@ class ApiKeySubscriber implements EventSubscriberInterface
 
     public static function getSubscribedEvents(): array
     {
-        return [RequestEvent::class => 'onKernelRequest'];
+        return [KernelEvents::REQUEST => ['onKernelRequest', 0]];
     }
 
     public function onKernelRequest(RequestEvent $event): void
     {
-        // Only enforce on API routes, skip the main dashboard page and assets
+        // Only guard API routes; static assets and the dashboard are public.
         if (!$this->isApiRoute($event)) {
             return;
         }
 
         $request = $event->getRequest();
         $headerKey = trim($request->headers->get('X-API-Key') ?? '');
-        $paramKey  = trim($request->query->get('api_key', ''));
+        $paramKey = trim($request->query->get('api_key', ''));
 
         if ($headerKey === '' && $paramKey === '') {
             $this->rejectUnauthorized($event, 'Missing API key. Provide it via X-API-Key header or api_key query parameter.');
+
             return;
         }
 
         $provided = $headerKey !== '' ? $headerKey : $paramKey;
 
-        // Use hash_equals to prevent timing attacks when comparing keys
+        // hash_equals to avoid leaking the key via timing.
         if (!hash_equals($this->apiKey, $provided)) {
             $this->rejectUnauthorized($event, 'Invalid API key.');
         }
     }
 
+    /**
+     * True when this request targets an API route. Requests that match no
+     * route (e.g. "/" or an unknown path) are left alone — the router will
+     * produce the appropriate 404 and static files are served directly.
+     */
     private function isApiRoute(RequestEvent $event): bool
     {
-        // Check route name or path prefix; adjust as needed once routes are loaded
-        $routeName = $event->getRequest()->attributes->get('_route') ?? null;
+        $routeName = $event->getRequest()->attributes->get('_route');
 
-        if (is_null($routeName)) {
-            throw new \LogicException('Routing must take place before ApiKey check.');
+        // No route matched (404 in progress) → not an API route.
+        if (null === $routeName) {
+            return false;
         }
 
-        return str_starts_with($routeName, 'api_logs_');
+        return str_starts_with((string) $routeName, 'api_logs_');
     }
 
     private function rejectUnauthorized(RequestEvent $event, string $message): void
     {
-        $response = new JsonResponse(['error' => $message], 401);
-        $event->setResponse($response);
+        $event->setResponse(new JsonResponse(['error' => $message], 401));
     }
 }

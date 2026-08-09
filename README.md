@@ -32,14 +32,14 @@ git clone https://github.com/your-user/vital-pulse.git
 cd vital-pulse
 
 # Copy the environment template and set your API key
-cp host.env.example host.env
+cp .env.example host.env
 # Edit host.env: set API_KEY to a strong secret
 
 # Build and run
 docker compose up -d
 ```
 
-The API will be available at `http://localhost:9000` and the dashboard at `http://localhost:9000/index.html`.
+The API and dashboard are both available at `http://localhost:9000` — one process serves the static dashboard assets and the `/api/*` endpoints.
 
 ### Manual
 
@@ -51,13 +51,13 @@ cd vital-pulse
 composer install
 
 # Configure environment
-cp host.env.example .env
-# Edit .env: set API_KEY and APP_SECRET
+cp .env.example .env.local
+# Edit .env.local: set API_KEY and APP_SECRET to strong random values
 
 # Create the database directory
 mkdir -p var/data
 
-# Start the development server
+# Start the development server — serves BOTH the API and the dashboard
 php -S 0.0.0.0:9000 -t public/
 ```
 
@@ -149,7 +149,7 @@ curl -H "X-API-Key: your_api_key" \
 
 ## Configuration
 
-Environment variables are loaded from `.env` (or `host.env` in production). See `host.env.example` for a template.
+Environment variables are loaded from the committed `.env` defaults plus a git-ignored override (`.env.local` locally, or `host.env` for Docker). See `.env.example` for the template. Never commit real secrets.
 
 | Variable        | Default                                                          | Description                                     |
 |-----------------|------------------------------------------------------------------|-------------------------------------------------|
@@ -230,39 +230,37 @@ This starts the PHP server in a detached `screen` session named `vital-pulse` on
 
 ## Deployment
 
-### Caddy Reverse Proxy
+### Serving model
 
-The included `Caddyfile` shows a production setup where Caddy serves the static dashboard files directly and reverse-proxies API requests to the PHP backend:
+A single PHP process serves the **entire** application — the static dashboard and the Symfony API alike. The front controller is `public/index.php`; static assets in `public/` are served directly by the web server. There is no separate build or copy step.
+
+### Caddy / FrankenPHP
+
+The included `Caddyfile` reverse-proxies everything to the PHP process (FrankenPHP in Docker). Static assets and API responses both come from the app container:
 
 ```caddyfile
 vitals.example.com {
-    root /data/vitals
-    reverse_proxy /api/* dockerhost:9000
-    file_server
+    reverse_proxy vital-pulse:9000 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+    }
+    encode zstd gzip
 }
-```
-
-The `deploy.sh` script copies the `public/` directory to the Caddy data directory:
-
-```bash
-./deploy.sh
-```
-
-### run.sh (Screen)
-
-For simple deployments without a full web server, `run.sh` starts the PHP built-in server inside a `screen` session:
-
-```bash
-./run.sh
-# Check status
-screen -list
-# Attach to the session
-screen -r vital-pulse
 ```
 
 ### Docker
 
-A Docker setup is available for containerized deployments. Configure environment variables via `host.env` (copied into the container as `.env`).
+The app is being containerized (FrankenPHP). Configure environment variables via a git-ignored `host.env` (copied next to `docker-compose.yml`):
+
+```bash
+cp .env.example host.env
+# Edit host.env: set API_KEY and APP_SECRET to strong random values
+docker compose up -d
+```
+
+### run.sh / deploy.sh (legacy manual helpers)
+
+`run.sh` starts PHP's built-in server in a detached `screen` session and `deploy.sh` copies `public/` into a host Caddy directory — both belong to the old split deployment and will be removed once Docker is the primary setup. Do not use them for new deployments.
 
 ---
 

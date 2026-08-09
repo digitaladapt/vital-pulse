@@ -1,5 +1,6 @@
 
 ###> symfony/framework-bundle ###
+# .env is now committed with safe defaults; only local overrides are ignored
 /.env.local
 /.env.local.php
 /.env.*.local
@@ -8,6 +9,7 @@
 /var/
 /vendor/
 /config/reference.php
+/composer.phar
 ###< symfony/framework-bundle ###
 
 ###> phpunit/phpunit ###
@@ -16,5 +18,5 @@
 /.phpunit.result.cache
 ###< phpunit/phpunit ###
 
-# host.env (aka .env) has api-key, so don't commit that
+# host.env holds the real API key / secrets for the server — never commit it
 host.env

@@ -37,7 +37,7 @@ Feature requests are welcome! Please:
 
 ### Prerequisites
 
-- PHP 8.3+
+- PHP 8.4+
 - Composer
 - SQLite3
 
@@ -91,7 +91,7 @@ All tests must pass before submitting a pull request.
 ## Code Style
 
 - **PSR-12** — follow the [PSR-12 Extended Coding Style](https://www.php-fig.org/psr/psr-12/).
-- **PHP 8.3+** — use modern PHP features (typed properties, readonly, enums, etc.).
+- **PHP 8.4+** — use modern PHP features (typed properties, readonly, enums, etc.).
 - Use `declare(strict_types=1);` at the top of every PHP file.
 - Keep methods small and focused.
 - Add PHPDoc blocks for public methods where the signature isn't self-explanatory.

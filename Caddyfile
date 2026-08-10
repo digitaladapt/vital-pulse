@@ -1,16 +1,8 @@
-#____________________________________________________________________
-# VitalPulse
-#
-# FrankenPHP (or the PHP dev server) serves the ENTIRE application —
-# the Symfony API under /api/* as well as the static dashboard assets
-# in public/. Caddy only terminates TLS and forwards everything.
-#____________________________________________________________________
+# --- vital-pulse ---------------------------------------------------------------
+# FrankenPHP serves the entire application (API + static dashboard) on port 80.
+# The host-level Caddy just terminates TLS and forwards.
+#_______________________________________________________________________________
 
 vitals.devgnome.com {
-	reverse_proxy vital-pulse:9000 {
-		header_up X-Forwarded-Proto {scheme}
-		header_up X-Forwarded-Host {host}
-	}
-
-	encode zstd gzip
+	reverse_proxy vital-pulse
 }

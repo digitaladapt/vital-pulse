@@ -44,7 +44,7 @@ The API and dashboard are both available at `http://localhost:9000` — one proc
 ### Manual
 
 ```bash
-# Prerequisites: PHP 8.3+, Composer, SQLite3
+# Prerequisites: PHP 8.4+, Composer, SQLite3
 
 git clone https://github.com/your-user/vital-pulse.git
 cd vital-pulse
@@ -185,7 +185,7 @@ The `HealthLog` entity stores a single health check-in entry.
 
 ### Prerequisites
 
-- PHP 8.3+
+- PHP 8.4+
 - Composer
 - SQLite3
 

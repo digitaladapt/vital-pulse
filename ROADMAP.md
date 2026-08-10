@@ -3,13 +3,13 @@
 ## Project Overview
 
 VitalPulse is a personal health vitals tracker built with **Symfony**
-(PHP ≥ 8.3), **Doctrine ORM** (SQLite by default), and a vanilla
+(PHP ≥ 8.4), **Doctrine ORM** (SQLite by default), and a vanilla
 HTML/JS dashboard with Chart.js. It tracks blood pressure, heart rate,
 body weight, and mood (emoji) in a single unified log entry.
 
 - **Location:** `projects/vital-pulse/`
 - **Framework:** Symfony 7.x/8.x (mixed component versions)
-- **Language:** PHP ≥ 8.3
+- **Language:** PHP ≥ 8.4
 - **Database:** SQLite (`var/data/health_tracker.db`), MySQL-capable
 - **Frontend:** Plain HTML + Chart.js v4 + Luxon (no build step)
 - **Auth:** Single API key (timing-safe comparison via `hash_equals`)
@@ -378,7 +378,7 @@ summary.
 │  ├── Dashboard (3 line charts + stats)      │
 │  └── Log entry form (BP, HR, weight, emoji) │
 ├─────────────────────────────────────────────┤
-│  Symfony (PHP 8.3+)                         │
+│  Symfony (PHP 8.4+)                         │
 │  ├── HealthApiController (POST, GET)        │
 │  ├── ApiKeySubscriber (auth middleware)     │
 │  ├── Doctrine ORM 3.x                       │

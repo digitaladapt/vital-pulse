@@ -1,0 +1,22 @@
+networks:
+  public:
+    external: true
+
+services:
+  vital-pulse:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vital-pulse
+    expose:
+      - 80
+    environment:
+      APP_SECRET: ${APP_SECRET:-}
+      DATABASE_URL: "sqlite:///%kernel.project_dir%/var/data/health_tracker.db"
+      API_KEY: ${API_KEY:-change-me}
+      DEFAULT_URI: ${DEFAULT_URI:-https://vitals.devgnome.com}
+    restart: unless-stopped
+    networks:
+      - public
+    volumes:
+      - ./var:/app/var

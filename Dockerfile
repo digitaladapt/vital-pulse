@@ -15,8 +15,14 @@ COPY composer.json composer.lock symfony.lock ./
 
 RUN composer install --no-dev --no-interaction --no-scripts
 
+# Build arg for version (CI should pass --build-arg APP_VERSION=v1.3.0)
+ARG APP_VERSION=dev
+
 # Copy the rest of the application
 COPY . .
+
+# Write the version file for runtime version detection
+RUN echo "${APP_VERSION}" > VERSION
 
 # Run composer auto-scripts (cache:clear, assets:install)
 ENV APP_ENV=prod
@@ -36,6 +42,7 @@ COPY docker/php.ini /usr/local/etc/php/conf.d/zz-vital-pulse.ini
 WORKDIR /app
 
 # Copy the built application from the composer stage
+# (includes the VERSION file generated in the builder)
 COPY --from=composer /app /app
 
 # Copy Docker support files

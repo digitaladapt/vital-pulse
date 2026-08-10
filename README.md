@@ -39,7 +39,7 @@ cp .env.example host.env
 docker compose up -d
 ```
 
-The API and dashboard are both available at `http://localhost:9000` — one process serves the static dashboard assets and the `/api/*` endpoints.
+The API and dashboard are both available at `http://localhost:8080` (or whatever `VITALPULSE_PORT` is set to in `host.env`). The container listens on port 80 internally — `compose.yaml` maps it to the host port defined by `VITALPULSE_PORT` (default: 8080).
 
 ### Manual
 
@@ -58,7 +58,7 @@ cp .env.example .env.local
 mkdir -p var/data
 
 # Start the development server — serves BOTH the API and the dashboard
-php -S 0.0.0.0:9000 -t public/
+php -S 0.0.0.0:8080 -t public/
 ```
 
 ---
@@ -126,7 +126,7 @@ Results are always returned sorted by timestamp descending (newest first).
 
 ```bash
 curl -H "X-API-Key: your_api_key" \
-  "http://localhost:9000/api/v1/logs?from=2025-07-01&to=2025-07-31&emoji=🙂&emoji=😐"
+  "http://localhost:8080/api/v1/logs?from=2025-07-01&to=2025-07-31&emoji=🙂&emoji=😐"
 ```
 
 **Response — `200 OK`:**
@@ -151,13 +151,14 @@ curl -H "X-API-Key: your_api_key" \
 
 Environment variables are loaded from the committed `.env` defaults plus a git-ignored override (`.env.local` locally, or `host.env` for Docker). See `.env.example` for the template. Never commit real secrets.
 
-| Variable        | Default                                                          | Description                                     |
-|-----------------|------------------------------------------------------------------|-------------------------------------------------|
-| `DATABASE_URL`  | `sqlite:///%kernel.project_dir%/var/data/health_tracker.db`      | Doctrine database connection URL (SQLite default)|
-| `API_KEY`       | `change_me_to_a_strong_secret_key_1234567890abcdef`              | API key required for `/api/v1/*` endpoints       |
-| `APP_ENV`       | `dev`                                                            | Symfony environment (`dev`, `prod`, `test`)      |
-| `APP_SECRET`    | *(generated)*                                                    | Symfony secret key for hashes/tokens             |
-| `AUTH_SECRET`   | `vital-pulse-master`                                              | Defined in env but currently unused — slated for removal |
+| Variable          | Default                                                          | Description                                     |
+|-------------------|------------------------------------------------------------------|-------------------------------------------------|
+| `DATABASE_URL`    | `sqlite:///%kernel.project_dir%/var/data/health_tracker.db`      | Doctrine database connection URL (SQLite default)|
+| `API_KEY`         | `change_me_to_a_strong_secret_key_1234567890abcdef`              | API key required for `/api/v1/*` endpoints       |
+| `APP_ENV`         | `dev`                                                            | Symfony environment (`dev`, `prod`, `test`)      |
+| `APP_SECRET`      | *(generated)*                                                    | Symfony secret key for hashes/tokens             |
+| `VITALPULSE_PORT` | `8080`                                                           | Host port mapped to the container's port 80 (Docker only) |
+| `APP_VERSION`     | `dev`                                                            | Version baked into the Docker image at build time (pass `--build-arg APP_VERSION=v1.3.0` or set in `host.env`) |
 
 > **Deployment model:** VitalPulse is designed for LAN/VPN deployment with a single shared API key. There is no user account system — the API key is the only authentication. For internet-facing deployments, put it behind a reverse proxy with additional access controls.
 
@@ -215,13 +216,13 @@ Test configuration is in `phpunit.dist.xml`. The test environment is defined in 
 
 ```bash
 # Start PHP's built-in server
-php -S 0.0.0.0:9000 -t public/
+php -S 0.0.0.0:8080 -t public/
 ```
 
-Or use the included screen script (for long-running deployments):
+Or use the legacy screen script (moved to `docs/legacy/run.sh`):
 
 ```bash
-./run.sh
+./docs/legacy/run.sh
 ```
 
 This starts the PHP server in a detached `screen` session named `vital-pulse` on port 9000.
@@ -240,7 +241,7 @@ The included `Caddyfile` reverse-proxies everything to the PHP process (FrankenP
 
 ```caddyfile
 vitals.example.com {
-    reverse_proxy vital-pulse:9000 {
+    reverse_proxy vital-pulse:80 {
         header_up X-Forwarded-Proto {scheme}
         header_up X-Forwarded-Host {host}
     }
@@ -260,7 +261,7 @@ docker compose up -d
 
 ### run.sh / deploy.sh (legacy manual helpers)
 
-`run.sh` starts PHP's built-in server in a detached `screen` session and `deploy.sh` copies `public/` into a host Caddy directory — both belong to the old split deployment and will be removed once Docker is the primary setup. Do not use them for new deployments.
+`run.sh` and `deploy.sh` are deprecated scripts from the old split deployment. They have been moved to `docs/legacy/`. Do not use them for new deployments — use Docker instead.
 
 ---
 

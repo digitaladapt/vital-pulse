@@ -49,10 +49,20 @@ class HealthLogRepository extends ServiceEntityRepository
     public function getStatsForDateRange(?\DateTimeInterface $from = null, ?\DateTimeInterface $to = null): array
     {
         $qb = $this->createQueryBuilder('l')
-            ->select('AVG(l.systolic) AS avgSystolic', 'MIN(l.systolic) AS minSystolic', 'MAX(l.systolic) AS maxSystolic',
-                    'AVG(l.diastolic) AS avgDiastolic', 'MIN(l.diastolic) AS minDiastolic', 'MAX(l.diastolic) AS maxDiastolic',
-                    'AVG(l.heartRate) AS avgHeartRate', 'MIN(l.heartRate) AS minHeartRate', 'MAX(l.heartRate) AS maxHeartRate',
-                    'AVG(l.weight) AS avgWeight', 'MIN(l.weight) AS minWeight', 'MAX(l.weight) AS maxWeight');
+            ->select(
+                'AVG(l.systolic) AS avgSystolic',
+                'MIN(l.systolic) AS minSystolic',
+                'MAX(l.systolic) AS maxSystolic',
+                'AVG(l.diastolic) AS avgDiastolic',
+                'MIN(l.diastolic) AS minDiastolic',
+                'MAX(l.diastolic) AS maxDiastolic',
+                'AVG(l.heartRate) AS avgHeartRate',
+                'MIN(l.heartRate) AS minHeartRate',
+                'MAX(l.heartRate) AS maxHeartRate',
+                'AVG(l.weight) AS avgWeight',
+                'MIN(l.weight) AS minWeight',
+                'MAX(l.weight) AS maxWeight'
+            );
 
         if ($from instanceof \DateTimeInterface) {
             $qb->andWhere('l.timestamp >= :from')

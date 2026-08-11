@@ -96,7 +96,17 @@ All tests must pass before submitting a pull request.
 - Keep methods small and focused.
 - Add PHPDoc blocks for public methods where the signature isn't self-explanatory.
 
-**Note:** `php-cs-fixer` is not included as a project dependency. If you want automated checking, install it globally (`composer global require friendsofphp/php-cs-fixer`) and run it against the [PSR-12](https://www.php-fig.org/psr/psr-12/) ruleset. Otherwise, just follow PSR-12 manually.
+`php-cs-fixer` is included as a dev dependency and pre-configured for [PSR-12](https://www.php-fig.org/psr/psr-12/) in `.php-cs-fixer.dist.php`.
+
+Check your code style before submitting a PR:
+
+```bash
+# Dry-run — show what would be changed
+php vendor/bin/php-cs-fixer fix --dry-run --diff
+
+# Apply fixes automatically
+php vendor/bin/php-cs-fixer fix
+```
 
 ---
 

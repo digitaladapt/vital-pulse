@@ -60,6 +60,7 @@
         "ext-libxml": "*",
         "ext-mbstring": "*",
         "ext-xmlwriter": "*",
+        "friendsofphp/php-cs-fixer": "^3.95",
         "phpunit/phpunit": "^10",
         "symfony/browser-kit": "^8.1",
         "symfony/phpunit-bridge": "^8.1"

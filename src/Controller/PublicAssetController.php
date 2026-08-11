@@ -14,7 +14,7 @@ class PublicAssetController
         return $this->serveFile('index.html');
     }
 
-    #[Route('/{path}', name: 'serve_asset', requirements: ['path' => '.+'])]
+    #[Route('/{path}', name: 'serve_asset', requirements: ['path' => '.+'], priority: -1)]
     public function serveAsset(string $path): Response
     {
         return $this->serveFile($path);

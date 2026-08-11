@@ -10,7 +10,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class SystemController extends AbstractController
 {
-    private const FALLBACK_VERSION = '1.4.1';
+    private const FALLBACK_VERSION = '1.4.2';
 
     #[Route('/api/about', name: 'api_about', methods: ['GET'])]
     public function about(): JsonResponse

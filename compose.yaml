@@ -21,4 +21,4 @@ services:
     networks:
       - public
     volumes:
-      - ./var:/app/var
+      - ./var/data:/app/var/data

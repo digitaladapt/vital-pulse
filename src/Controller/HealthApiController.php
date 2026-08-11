@@ -102,12 +102,13 @@ class HealthApiController
     }
 
     #[Route(methods: ['GET'])]
-    public function listLogs(Request $request): JsonResponse {
+    public function listLogs(Request $request): JsonResponse
+    {
         try {
             $dateFrom = $this->parseDate($request->query->get('from'));
             $dateTo = $this->parseDate($request->query->get('to'));
             $emoji =  $request->query->all()['emoji'] ?? [];
-            if ( ! is_array($emoji)) {
+            if (! is_array($emoji)) {
                 $emoji = [$emoji];
             }
 

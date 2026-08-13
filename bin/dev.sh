@@ -9,8 +9,13 @@
 # The dev server uses a SEPARATE SQLite database (var/data/dev.db) so that
 # production data in the Docker volume is never touched.
 #
+# Self-bootstrapping: the `start` command checks for required system packages
+# (PHP, extensions, tools), Composer, and project dependencies — installing
+# them automatically if missing. This means the script works even after a
+# terminal reset/reboot, embracing the self-cleaning container design.
+#
 # Usage:
-#   bin/dev.sh start     Start the dev server
+#   bin/dev.sh start     Start the dev server (auto-installs deps if needed)
 #   bin/dev.sh stop      Stop the dev server
 #   bin/dev.sh status    Check if the dev server is running
 #   bin/dev.sh restart   Stop and start the dev server
@@ -29,6 +34,35 @@ DEV_API_KEY="dev_api_key_not_for_production"
 DEV_SECRET="dev_secret_not_for_production_use_only"
 PID_FILE="var/.dev-server.pid"
 LOG_FILE="var/log/dev-server.log"
+
+# Required PHP extensions (checked via php -m)
+REQUIRED_PHP_EXTS=(
+    ctype
+    iconv
+    mbstring
+    pdo_sqlite
+    dom
+    SimpleXML
+)
+
+# Apt packages for PHP + extensions
+PHP_APT_PACKAGES=(
+    php8.4-cli
+    php8.4-common     # ctype, iconv
+    php8.4-mbstring
+    php8.4-sqlite3    # pdo_sqlite, sqlite3
+    php8.4-xml        # dom, SimpleXML, xml
+    php8.4-opcache
+    php8.4-readline
+)
+
+# System tools needed
+SYSTEM_TOOLS=(
+    git
+    unzip
+    sqlite3
+    curl
+)
 
 # Resolve project root (script lives in bin/)
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -67,6 +101,60 @@ print_status() {
     fi
 }
 
+# ── Bootstrap ───────────────────────────────────────────────────────────────
+# Ensures all system packages, Composer, and project dependencies are present.
+# Idempotent — if everything is already installed, checks are fast no-ops.
+# This is what makes the script survive terminal resets/reboots.
+
+bootstrap() {
+    local needed_packages=()
+
+    # ── Check system tools ──
+    for tool in "${SYSTEM_TOOLS[@]}"; do
+        if ! command -v "$tool" &>/dev/null; then
+            needed_packages+=("$tool")
+        fi
+    done
+
+    # ── Check PHP and required extensions ──
+    local php_needs_install=false
+    if ! command -v php &>/dev/null; then
+        php_needs_install=true
+    else
+        for ext in "${REQUIRED_PHP_EXTS[@]}"; do
+            if ! php -m 2>/dev/null | grep -iq "^${ext}$"; then
+                php_needs_install=true
+                break
+            fi
+        done
+    fi
+
+    if [[ "$php_needs_install" == "true" ]]; then
+        needed_packages+=("${PHP_APT_PACKAGES[@]}")
+    fi
+
+    # ── Install missing packages ──
+    if [[ ${#needed_packages[@]} -gt 0 ]]; then
+        echo "→ Installing missing system packages: ${needed_packages[*]}…"
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq "${needed_packages[@]}"
+    fi
+
+    # ── Ensure Composer is available ──
+    if ! command -v composer &>/dev/null; then
+        echo "→ Installing Composer…"
+        curl -sS https://getcomposer.org/installer | php
+        sudo mv composer.phar /usr/local/bin/composer
+        sudo chmod +x /usr/local/bin/composer
+    fi
+
+    # ── Ensure project dependencies are installed ──
+    if [[ ! -d "vendor/" ]]; then
+        echo "→ Installing Composer dependencies…"
+        APP_ENV=dev composer install --no-interaction
+    fi
+}
+
 # ── Commands ────────────────────────────────────────────────────────────────
 
 start() {
@@ -77,6 +165,9 @@ start() {
     fi
 
     echo "→ Starting VitalPulse dev server on ${HOST}:${PORT}…"
+
+    # Self-bootstrap: ensure all dependencies are present
+    bootstrap
 
     # Ensure dev database exists and migrations are applied
     if [[ ! -f "$DEV_DB" ]]; then
@@ -161,7 +252,7 @@ usage() {
     echo "Usage: bin/dev.sh {start|stop|status|restart}"
     echo ""
     echo "Commands:"
-    echo "  start     Start the dev server"
+    echo "  start     Start the dev server (auto-installs deps if needed)"
     echo "  stop      Stop the dev server"
     echo "  status    Check if the dev server is running"
     echo "  restart   Restart the dev server"

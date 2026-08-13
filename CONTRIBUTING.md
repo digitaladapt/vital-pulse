@@ -65,9 +65,36 @@ No additional configuration is needed to run tests — the test suite uses an in
 
 ### Start the Dev Server
 
+A convenience script manages the local PHP dev server with proper environment
+configuration, a separate dev database, and process lifecycle management.
+
 ```bash
-php -S 0.0.0.0:9000 -t public/
+# Start the dev server
+bin/dev.sh start
+
+# Check if it's running
+bin/dev.sh status
+
+# Stop the dev server
+bin/dev.sh stop
+
+# Restart (useful after config changes)
+bin/dev.sh restart
 ```
+
+The dev server binds to `0.0.0.0:8848` and uses a separate SQLite database
+(`var/data/dev.db`) so production data is never touched.
+
+**Dev environment credentials:**
+
+| Setting | Value |
+|---------|-------|
+| API Key | `dev_api_key_not_for_production` |
+| DB Path | `var/data/dev.db` |
+| Port | `8848` |
+
+The server is accessible at `http://localhost:8848` locally, or via a
+reverse proxy at `https://vitals.lyra-dev.devgnome.com`.
 
 ---
 

@@ -22,6 +22,25 @@ jobs:
           extensions: ctype, iconv, dom, filter, json, mbstring, xmlwriter, libxml, pdo, pdo_sqlite
           coverage: none
 
+      # Authenticate to GitHub to raise API rate limit from 60 → 5,000 req/hour.
+      # Composer downloads packages from api.github.com; without auth, the 105
+      # GitHub-hosted packages in composer.lock exceed the 60 req/hour limit.
+      - name: Configure GitHub OAuth token
+        env:
+          GITHUB_TOKEN: ${{ secrets.SYNC_GITHUB_TOKEN }}
+        run: composer config --global github-oauth.github.com "$GITHUB_TOKEN"
+
+      # Cache Composer's download cache so repeated CI runs don't re-download
+      # packages at all. Keyed on composer.lock hash — cache busts automatically
+      # when dependencies change.
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-
+
       - name: Copy environment file
         run: cp .env.test .env
 

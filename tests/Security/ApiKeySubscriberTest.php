@@ -31,8 +31,9 @@ class ApiKeySubscriberTest extends TestCase
         $subscriber->onKernelRequest($event);
     }
 
-    public function testApiKeyValidViaQueryParam(): void
+    public function testApiKeyViaQueryParamIsRejected(): void
     {
+        // Query parameter is no longer accepted — only X-API-Key header.
         $subscriber = new ApiKeySubscriber(self::VALID_KEY);
         $request = Request::create('/api/v1/logs?api_key=' . self::VALID_KEY, 'GET');
         $request->attributes->set('_route', 'api_logs_');
@@ -42,8 +43,8 @@ class ApiKeySubscriberTest extends TestCase
             ->method('getRequest')
             ->willReturn($request);
 
-        // Valid key via query param should not trigger rejection
-        $event->expects($this->never())
+        // Even a valid key via query param should be rejected
+        $event->expects($this->once())
             ->method('setResponse');
 
         $subscriber->onKernelRequest($event);
@@ -105,9 +106,9 @@ class ApiKeySubscriberTest extends TestCase
         $subscriber->onKernelRequest($event);
     }
 
-    public function testHeaderKeyTakesPriorityOverQueryParam(): void
+    public function testValidHeaderSucceedsEvenWithQueryParamsPresent(): void
     {
-        // When both are provided, header should be checked first (and if valid, succeed)
+        // Query params are now ignored entirely; only the header matters.
         $subscriber = new ApiKeySubscriber(self::VALID_KEY);
         $request = Request::create('/api/v1/logs?api_key=wrong', 'GET');
         $request->headers->set('X-API-Key', self::VALID_KEY);
@@ -118,7 +119,7 @@ class ApiKeySubscriberTest extends TestCase
             ->method('getRequest')
             ->willReturn($request);
 
-        // Header is valid, should not reject even though query param is wrong
+        // Header is valid, should not reject
         $event->expects($this->never())
             ->method('setResponse');
 

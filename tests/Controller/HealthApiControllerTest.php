@@ -263,15 +263,16 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('2025-06-01T00:00:00+00:00', $data[0]['timestamp']);
     }
 
-    public function testApiKeyViaQueryParamAlsoWorks(): void
+    public function testApiKeyViaQueryParamIsRejected(): void
     {
+        // Query parameter is no longer accepted — only X-API-Key header.
         $client = $this->client;
         $payload = ['heart_rate' => 68];
         $client->request('POST', '/api/v1/logs?api_key=' . self::API_KEY, [], [], [
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode($payload));
 
-        self::assertResponseStatusCodeSame(201);
+        self::assertResponseStatusCodeSame(401);
     }
 
     // ── Validation group fix (#63): Range constraints now execute ──

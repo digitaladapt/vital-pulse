@@ -34,16 +34,9 @@ class ApiKeySubscriber implements EventSubscriberInterface
         $headerKey = trim($request->headers->get('X-API-Key') ?? '');
 
         if ($headerKey === '') {
-            // Fall back to ?api_key= query parameter
-            $queryKey = trim($request->query->get('api_key') ?? '');
+            $this->rejectUnauthorized($event, 'Missing API key. Provide it via X-API-Key header.');
 
-            if ($queryKey === '') {
-                $this->rejectUnauthorized($event, 'Missing API key. Provide it via X-API-Key header.');
-
-                return;
-            }
-
-            $headerKey = $queryKey;
+            return;
         }
 
         $provided = $headerKey;

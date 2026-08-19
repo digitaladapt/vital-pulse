@@ -271,8 +271,8 @@ async function renderCharts() {
     // Sort ascending by timestamp for charts (oldest → newest)
     logs.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-    updateStats(logs);
     updateLatestReading(logs);
+    updateStatsFromApi();
 
     try {
         renderBpChart(logs);
@@ -286,28 +286,121 @@ async function renderCharts() {
         }
     }
 
-function updateStats(logs) {
-    const n = logs.length;
-    document.getElementById('total-count').textContent = n;
+function buildStatsUrl(from, to) {
+    let url = '/api/v1/logs/stats?';
+    if (from) url += `from=${encodeURIComponent(from)}&`;
+    if (to) url += `to=${encodeURIComponent(to)}&`;
+    return url;
+}
 
-    if (n === 0) {
-        document.getElementById('avg-sys').textContent = '-';
-        document.getElementById('avg-dia').textContent = '-';
-        document.getElementById('avg-hr').textContent = '-';
-        document.getElementById('avg-wt').textContent = '-';
-        return;
+async function fetchStats(from, to) {
+    const url = buildStatsUrl(from, to);
+    try {
+        const resp = await fetch(url, {
+            headers: { 'X-API-Key': apiKey }
+        });
+        if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+        return await resp.json();
+    } catch (err) {
+        console.error('Stats fetch failed:', err);
+        return null;
     }
+}
 
-    function avg(arr) {
-        const vals = arr.filter(v => v !== null && v !== undefined);
-        if (vals.length === 0) return '-';
-        return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+/**
+ * Compute the previous period of equal length for trend comparison.
+ * If from=2025-06-01, to=2025-06-30 (30 days), previous = 2025-05-01 to 2025-05-31.
+ */
+function computePreviousPeriod(fromStr, toStr) {
+    if (!fromStr || !toStr) return null;
+    const from = new Date(fromStr);
+    const to = new Date(toStr);
+    if (isNaN(from) || isNaN(to)) return null;
+
+    const spanMs = to.getTime() - from.getTime();
+    const prevTo = new Date(from.getTime() - 86400000); // day before current "from"
+    const prevFrom = new Date(prevTo.getTime() - spanMs);
+
+    return {
+        from: prevFrom.toISOString().slice(0, 10),
+        to: prevTo.toISOString().slice(0, 10)
+    };
+}
+
+function formatStat(value, isFloat) {
+    if (value === null || value === undefined) return '-';
+    return isFloat ? Number(value).toFixed(1) : String(value);
+}
+
+function formatRange(min, max, isFloat) {
+    if (min === null && max === null) return '';
+    return `Range: ${formatStat(min, isFloat)} – ${formatStat(max, isFloat)}`;
+}
+
+function formatTrend(current, previous, isWeight) {
+    if (current === null || previous === null) return null;
+    const delta = Number(current) - Number(previous);
+    if (Math.abs(delta) < 0.05) return { text: '→ No change', cls: 'flat' };
+
+    const arrow = delta > 0 ? '↑' : '↓';
+    const absDelta = Math.abs(delta).toFixed(isWeight ? 1 : 0);
+    const cls = delta > 0 ? 'up' : 'down';
+
+    if (isWeight) {
+        return { text: `${arrow} ${absDelta} lbs vs prev period`, cls };
     }
+    return { text: `${arrow} ${absDelta} vs prev period`, cls };
+}
 
-    document.getElementById('avg-sys').textContent = avg(logs.map(l => l.systolic));
-    document.getElementById('avg-dia').textContent = avg(logs.map(l => l.diastolic));
-    document.getElementById('avg-hr').textContent = avg(logs.map(l => l.heart_rate));
-    document.getElementById('avg-wt').textContent = avg(logs.map(l => l.weight));
+const METRIC_MAP = {
+    sys: { api: 'systolic', isFloat: false, isWeight: false },
+    dia: { api: 'diastolic', isFloat: false, isWeight: false },
+    hr:  { api: 'heart_rate', isFloat: false, isWeight: false },
+    wt:  { api: 'weight', isFloat: true, isWeight: true },
+};
+
+async function updateStatsFromApi() {
+    const from = document.getElementById('filter-from').value || null;
+    const to = document.getElementById('filter-to').value || null;
+
+    // Reset all fields
+    Object.keys(METRIC_MAP).forEach(k => {
+        document.getElementById('avg-' + k).textContent = '-';
+        document.getElementById('range-' + k).textContent = '';
+        document.getElementById('trend-' + k).textContent = '';
+        document.getElementById('trend-' + k).className = 'stat-trend';
+    });
+    document.getElementById('total-count').textContent = '-';
+
+    // Fetch current period stats
+    const stats = await fetchStats(from, to);
+    if (!stats) return;
+
+    document.getElementById('total-count').textContent = stats.count ?? '-';
+
+    Object.entries(METRIC_MAP).forEach(([k, cfg]) => {
+        const d = stats[cfg.api] || {};
+        document.getElementById('avg-' + k).textContent = formatStat(d.avg, cfg.isFloat);
+        document.getElementById('range-' + k).textContent = formatRange(d.min, d.max, cfg.isFloat);
+    });
+
+    // Fetch previous period for trend comparison
+    const prevPeriod = computePreviousPeriod(from, to);
+    if (!prevPeriod) return;
+
+    const prevStats = await fetchStats(prevPeriod.from, prevPeriod.to);
+    if (!prevStats) return;
+
+    Object.entries(METRIC_MAP).forEach(([k, cfg]) => {
+        const cur = stats[cfg.api]?.avg ?? null;
+        const prev = prevStats[cfg.api]?.avg ?? null;
+        const trend = formatTrend(cur, prev, cfg.isWeight);
+        if (trend) {
+            const el = document.getElementById('trend-' + k);
+            el.textContent = trend.text;
+            el.className = 'stat-trend ' + trend.cls;
+        }
+    });
 }
 
 function updateLatestReading(logs) {

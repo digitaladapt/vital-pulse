@@ -59,7 +59,16 @@
 
         /* Stats */
         .stats-bar { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-        .stat-item { background: white; padding: 0.8rem 1.2rem; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 0.85rem; color: #4b5563; }
+        .stat-item { background: white; padding: 0.8rem 1.2rem; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 0.85rem; color: #4b5563; min-width: 130px; }
+        .stat-item .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: #9ca3af; margin-bottom: 0.25rem; }
+        .stat-item .stat-avg { font-size: 1.4rem; font-weight: bold; color: #1e3a5f; }
+        .stat-item .stat-range { font-size: 0.75rem; color: #6b7280; margin-top: 0.15rem; }
+        .stat-item .stat-trend { font-size: 0.75rem; margin-top: 0.15rem; font-weight: 500; }
+        .stat-trend.down { color: #059669; }
+        .stat-trend.up { color: #dc2626; }
+        .stat-trend.flat { color: #9ca3af; }
+        .stats-bar { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+
         .stat-value { font-size: 1.25rem; font-weight: bold; color: #1e3a5f; }
 
         /* Status */
@@ -131,12 +140,35 @@
     </div>
 
     <!-- Stats Bar -->
-    <div class="stats-bar">
-        <div class="stat-item"><span id="total-count">-</span><br>Total Entries</div>
-        <div class="stat-item"><span id="avg-sys">-</span><br>Avg Systolic</div>
-        <div class="stat-item"><span id="avg-dia">-</span><br>Avg Diastolic</div>
-        <div class="stat-item"><span id="avg-hr">-</span><br>Avg Heart Rate</div>
-        <div class="stat-item"><span id="avg-wt">-</span><br>Avg Weight</div>
+    <div class="stats-bar" id="stats-bar">
+        <div class="stat-item">
+            <div class="stat-label">Total Entries</div>
+            <div class="stat-avg" id="total-count">-</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Avg Systolic</div>
+            <div class="stat-avg" id="avg-sys">-</div>
+            <div class="stat-range" id="range-sys"></div>
+            <div class="stat-trend" id="trend-sys"></div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Avg Diastolic</div>
+            <div class="stat-avg" id="avg-dia">-</div>
+            <div class="stat-range" id="range-dia"></div>
+            <div class="stat-trend" id="trend-dia"></div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Avg Heart Rate</div>
+            <div class="stat-avg" id="avg-hr">-</div>
+            <div class="stat-range" id="range-hr"></div>
+            <div class="stat-trend" id="trend-hr"></div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Avg Weight (lbs)</div>
+            <div class="stat-avg" id="avg-wt">-</div>
+            <div class="stat-range" id="range-wt"></div>
+            <div class="stat-trend" id="trend-wt"></div>
+        </div>
     </div>
 
     <!-- Charts -->

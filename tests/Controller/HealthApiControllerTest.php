@@ -168,9 +168,10 @@ class HealthApiControllerTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(200);
-        $data = json_decode($client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertCount(0, $data);
+        $body = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertIsArray($body['data']);
+        self::assertCount(0, $body['data']);
     }
 
     public function testGetLogsReturnsCreatedEntries(): void
@@ -191,7 +192,9 @@ class HealthApiControllerTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(200);
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $body = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        $data = $body['data'];
         self::assertCount(3, $data); // includes the one we persisted without measurements for schema test; should still appear
     }
 
@@ -215,7 +218,9 @@ class HealthApiControllerTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(200);
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $body = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        $data = $body['data'];
         self::assertCount(1, $data);
         self::assertEquals(80, $data[0]['heart_rate']);
     }
@@ -243,8 +248,9 @@ class HealthApiControllerTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(200);
-        $data = json_decode($client->getResponse()->getContent(), true);
-        self::assertCount(2, $data); // only the 😀 ones
+        $body = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertCount(2, $body['data']); // only the 😀 ones
     }
 
     public function testGetLogsOrderedByTimestampDescending(): void
@@ -265,7 +271,9 @@ class HealthApiControllerTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(200);
-        $data = json_decode($client->getResponse()->getContent(), true);
+        $body = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        $data = $body['data'];
         self::assertCount(2, $data);
         // First result should be the newer one
         self::assertEquals('2025-06-01T00:00:00+00:00', $data[0]['timestamp']);
@@ -295,7 +303,10 @@ class HealthApiControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(400);
         $data = json_decode($client->getResponse()->getContent(), true);
-        self::assertStringContainsString('Systolic', (string) ($data['error'] ?? ''));
+        self::assertEquals('Validation failed', $data['error'] ?? '');
+        self::assertArrayHasKey('details', $data);
+        self::assertArrayHasKey('systolic', $data['details']);
+        self::assertStringContainsString('Systolic', implode(' ', $data['details']['systolic']));
     }
 
     public function testPostLogNegativeHeartRateReturns400(): void
@@ -398,9 +409,10 @@ class HealthApiControllerTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(200);
-        $data = json_decode($client->getResponse()->getContent(), true);
-        self::assertCount(1, $data);
+        $body = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertCount(1, $body['data']);
         $expectedKeys = ['id', 'timestamp', 'systolic', 'diastolic', 'heart_rate', 'weight', 'emoji'];
-        self::assertEquals($expectedKeys, array_keys($data[0]));
+        self::assertEquals($expectedKeys, array_keys($body['data'][0]));
     }
 }

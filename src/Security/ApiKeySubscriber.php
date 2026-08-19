@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Security;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -30,15 +32,21 @@ class ApiKeySubscriber implements EventSubscriberInterface
 
         $request = $event->getRequest();
         $headerKey = trim($request->headers->get('X-API-Key') ?? '');
-        $paramKey = trim($request->query->get('api_key', ''));
 
-        if ($headerKey === '' && $paramKey === '') {
-            $this->rejectUnauthorized($event, 'Missing API key. Provide it via X-API-Key header or api_key query parameter.');
+        if ($headerKey === '') {
+            // Fall back to ?api_key= query parameter
+            $queryKey = trim($request->query->get('api_key') ?? '');
 
-            return;
+            if ($queryKey === '') {
+                $this->rejectUnauthorized($event, 'Missing API key. Provide it via X-API-Key header.');
+
+                return;
+            }
+
+            $headerKey = $queryKey;
         }
 
-        $provided = $headerKey !== '' ? $headerKey : $paramKey;
+        $provided = $headerKey;
 
         // hash_equals to avoid leaking the key via timing.
         if (!hash_equals($this->apiKey, $provided)) {

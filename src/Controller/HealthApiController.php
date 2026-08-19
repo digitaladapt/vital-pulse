@@ -16,7 +16,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[Route('/api/v1/logs', name: 'api_logs_')]
 class HealthApiController
 {
-    private const EMOJI_PATTERN = '/^[\x{1F300}-\x{1F9FF}\x{2600}-\x{27BF}\x{1F600}-\x{1F64F}\x{1F680}-\x{1F6FF}\x{1F700}-\x{1F77F}\x{1F900}-\x{1F9FF}\x{2700}-\x{27BF}]+$/u';
+    private const EMOJI_PATTERN = '/^[\x{1F300}-\x{1F9FF}\x{2600}-\x{27BF}\x{1F600}-\x{1F64F}\x{1F680}-\x{1F6FF}\x{1F700}-\x{1F77F}\x{1F900}-\x{1F9FF}\x{2700}-\x{27BF}\x{FE0F}\x{200D}]+$/u';
     private const MAX_PAGE_SIZE = 200;
     private const DEFAULT_PAGE_SIZE = 50;
 
@@ -41,6 +41,12 @@ class HealthApiController
         // Validate emoji length
         if (mb_strlen((string) $emoji) > 10) {
             return new JsonResponse(['error' => 'Emoji must be 10 characters or fewer.'], 400);
+        }
+
+        // Validate emoji is actually an emoji (not arbitrary text)
+        // Empty string is allowed — setEmoji() falls back to the default
+        if ($emoji !== '' && !preg_match(self::EMOJI_PATTERN, (string) $emoji)) {
+            return new JsonResponse(['error' => 'Emoji must be a valid emoji character.'], 400);
         }
 
         // Timestamp defaults to now if not provided
@@ -288,6 +294,8 @@ class HealthApiController
             $emoji = $data['emoji'] ?? '😐';
             if (mb_strlen((string) $emoji) > 10) {
                 $coercionErrors['emoji'] = ['Emoji must be 10 characters or fewer.'];
+            } elseif ($emoji !== '' && !preg_match(self::EMOJI_PATTERN, (string) $emoji)) {
+                $coercionErrors['emoji'] = ['Emoji must be a valid emoji character.'];
             } else {
                 $log->setEmoji($emoji);
             }

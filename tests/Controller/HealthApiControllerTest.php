@@ -685,4 +685,161 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('😐', $data['emoji']); // empty emoji falls back to default
     }
 
+
+    // ── Emoji validation tests (#77): regex-based emoji enforcement ──
+
+    public function testPostLogArbitraryStringEmojiReturns400(): void
+    {
+        $client = $this->client;
+        $payload = ['heart_rate' => 72, 'emoji' => 'alert(1)'];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertStringContainsString('emoji', strtolower($data['error'] ?? ''));
+    }
+
+    public function testPostLogHtmlTagEmojiReturns400(): void
+    {
+        $client = $this->client;
+        $payload = ['heart_rate' => 72, 'emoji' => '<script>'];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testPostLogNumericStringEmojiReturns400(): void
+    {
+        $client = $this->client;
+        $payload = ['heart_rate' => 72, 'emoji' => '12345'];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public static function frontendEmojiProvider(): array
+    {
+        return [
+            'star struck' => ['🤩'],
+            'grinning' => ['😀'],
+            'slight smile' => ['🙂'],
+            'neutral' => ['😐'],
+            'frowning with VS' => ['☹️'],
+            'weary' => ['😩'],
+            'hot face' => ['🥵'],
+            'dizzy ZWJ' => ['😵‍💫'],
+            'nauseated' => ['🤢'],
+            'cold face' => ['🥶'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('frontendEmojiProvider')]
+    public function testPostLogFrontendEmojiAccepted(string $emoji): void
+    {
+        $client = $this->client;
+        $payload = ['heart_rate' => 72, 'emoji' => $emoji];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(201, "Emoji {$emoji} was rejected");
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals($emoji, $data['emoji']);
+    }
+
+    public function testPostLogZwjEmojiSequenceAccepted(): void
+    {
+        // 😵‍💫 uses a zero-width joiner — must be accepted
+        $client = $this->client;
+        $payload = ['heart_rate' => 72, 'emoji' => '😵‍💫'];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals('😵‍💫', $data['emoji']);
+    }
+
+    public function testPostLogVariationSelectorEmojiAccepted(): void
+    {
+        // ☹️ uses a variation selector — must be accepted
+        $client = $this->client;
+        $payload = ['heart_rate' => 72, 'emoji' => '☹️'];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals('☹️', $data['emoji']);
+    }
+
+    public function testPostLogMixedEmojiAndTextReturns400(): void
+    {
+        // Emoji followed by text should be rejected
+        $client = $this->client;
+        $payload = ['heart_rate' => 72, 'emoji' => '😀test'];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testUpdateLogArbitraryStringEmojiReturns400(): void
+    {
+        // First create a valid log
+        $log = new HealthLog();
+        $log->setHeartRate(72)->setEmoji('😀');
+        $this->em->persist($log);
+        $this->em->flush();
+        $id = $log->getId();
+
+        $client = $this->client;
+        $payload = ['emoji' => 'alert(1)'];
+        $client->request('PUT', '/api/v1/logs/' . $id, [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('emoji', $data['details'] ?? []);
+    }
+
+    public function testUpdateLogValidEmojiSucceeds(): void
+    {
+        // First create a valid log
+        $log = new HealthLog();
+        $log->setHeartRate(72)->setEmoji('😀');
+        $this->em->persist($log);
+        $this->em->flush();
+        $id = $log->getId();
+
+        $client = $this->client;
+        $payload = ['emoji' => '🤩'];
+        $client->request('PUT', '/api/v1/logs/' . $id, [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals('🤩', $data['emoji']);
+    }
+
 }

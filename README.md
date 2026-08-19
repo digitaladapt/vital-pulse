@@ -65,12 +65,17 @@ php -S 0.0.0.0:8080 -t public/
 
 ## API Reference
 
-All endpoints are prefixed with `/api/v1` and require an API key, sent either via the `X-API-Key` header or the `api_key` query parameter.
+All endpoints are prefixed with `/api/v1` and require an API key sent via the `X-API-Key` header.
 
-| Method | Endpoint          | Description                          | Query Params                                   |
-|--------|-------------------|--------------------------------------|------------------------------------------------|
-| `POST` | `/api/v1/logs`    | Create a new health log entry        | —                                              |
-| `GET`  | `/api/v1/logs`    | List log entries with optional filter| `from`, `to`, `emoji`                          |
+| Method   | Endpoint              | Description                            | Query Params                                   |
+|----------|-----------------------|----------------------------------------|------------------------------------------------|
+| `POST`   | `/api/v1/logs`        | Create a new health log entry          | —                                              |
+| `GET`    | `/api/v1/logs`        | List log entries with optional filter  | `from`, `to`, `emoji`, `page`, `limit`         |
+| `GET`    | `/api/v1/logs/{id}`   | Get a single log entry by ID           | —                                              |
+| `PUT`    | `/api/v1/logs/{id}`   | Update a log entry                     | —                                              |
+| `DELETE` | `/api/v1/logs/{id}`   | Delete a log entry                     | —                                              |
+| `GET`    | `/api/v1/logs/export` | Export logs as CSV                     | `from`, `to`, `emoji`                          |
+| `GET`    | `/api/v1/logs/stats`  | Get aggregate statistics               | `from`, `to`                                   |
 
 ### POST `/api/v1/logs`
 
@@ -132,17 +137,25 @@ curl -H "X-API-Key: your_api_key" \
 **Response — `200 OK`:**
 
 ```json
-[
-  {
-    "id": 1,
-    "timestamp": "2025-07-28T10:00:00+00:00",
-    "systolic": 120,
-    "diastolic": 80,
-    "heart_rate": 65,
-    "weight": 72.5,
-    "emoji": "🙂"
+{
+  "data": [
+    {
+      "id": 1,
+      "timestamp": "2025-07-28T10:00:00+00:00",
+      "systolic": 120,
+      "diastolic": 80,
+      "heart_rate": 65,
+      "weight": 72.5,
+      "emoji": "🙂"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 50,
+    "total": 1,
+    "pages": 1
   }
-]
+}
 ```
 
 ---
@@ -154,8 +167,8 @@ Environment variables are loaded from the committed `.env` defaults plus a git-i
 | Variable          | Default                                                          | Description                                     |
 |-------------------|------------------------------------------------------------------|-------------------------------------------------|
 | `DATABASE_URL`    | `sqlite:///%kernel.project_dir%/var/data/health_tracker.db`      | Doctrine database connection URL (SQLite default)|
-| `API_KEY`         | `change_me_to_a_strong_secret_key_1234567890abcdef`              | API key required for `/api/v1/*` endpoints       |
-| `APP_ENV`         | `dev`                                                            | Symfony environment (`dev`, `prod`, `test`)      |
+| `API_KEY`         | `change_me_generate_with_openssl_rand_hex_32`              | API key required for `/api/v1/*` endpoints       |
+| `APP_ENV`         | `prod`                                                            | Symfony environment (`dev`, `prod`, `test`)      |
 | `APP_SECRET`      | *(generated)*                                                    | Symfony secret key for hashes/tokens             |
 | `VITALPULSE_PORT` | `8080`                                                           | Host port mapped to the container's port 80 (Docker only) |
 | `APP_VERSION`     | `dev`                                                            | Version baked into the Docker image at build time (pass `--build-arg APP_VERSION=v1.3.0` or set in `host.env`) |
@@ -200,7 +213,7 @@ composer install
 
 ### Running Tests
 
-The project uses PHPUnit 10 with 37 tests. The test environment uses an in-memory SQLite database.
+The project uses PHPUnit 10 with 129 tests. The test environment uses a file-based SQLite database (`var/data/test.db`).
 
 ```bash
 # Run the full test suite
@@ -241,17 +254,13 @@ The included `Caddyfile` reverse-proxies everything to the PHP process (FrankenP
 
 ```caddyfile
 vitals.example.com {
-    reverse_proxy vital-pulse:80 {
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Forwarded-Host {host}
-    }
-    encode zstd gzip
+    reverse_proxy vital-pulse
 }
 ```
 
 ### Docker
 
-The app is being containerized (FrankenPHP). Configure environment variables via a git-ignored `host.env` (copied next to `docker-compose.yml`):
+The app runs in Docker using FrankenPHP. Configure environment variables via a git-ignored `host.env` (copied next to `compose.yaml`):
 
 ```bash
 cp .env.example host.env

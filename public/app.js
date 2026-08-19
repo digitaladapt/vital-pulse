@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMoodSelector();
     initFilterEmoji();
     setDefaultDates();
+    document.querySelector('.preset-btn[data-preset="30"]').classList.add('active');
     setDefaultReadingDateTime();
     initAutoAdvance();
     requestApiKeyIfMissing().then(() => renderCharts());
@@ -154,6 +155,33 @@ function setDefaultDates() {
     thirtyDaysAgo.setDate(today.getDate() - 30);
     document.getElementById('filter-to').valueAsDate = tomorrow;
     document.getElementById('filter-from').valueAsDate = thirtyDaysAgo;
+}
+
+function applyDatePreset(preset) {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const fromEl = document.getElementById('filter-from');
+    const toEl = document.getElementById('filter-to');
+
+    if (preset === 'all') {
+        fromEl.value = '';
+        toEl.valueAsDate = tomorrow;
+    } else {
+        const days = parseInt(preset, 10);
+        const fromDate = new Date(today);
+        fromDate.setDate(today.getDate() - days);
+        fromEl.valueAsDate = fromDate;
+        toEl.valueAsDate = tomorrow;
+    }
+
+    // Highlight the active preset button
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.preset === String(preset));
+    });
+
+    renderCharts();
 }
 
 function setDefaultReadingDateTime() {

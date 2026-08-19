@@ -41,6 +41,10 @@
         /* Filters */
         .filters-section { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; background: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
         .filters-section label { font-size: 0.8rem; color: #666; font-weight: 600; display: block; margin-bottom: 2px; }
+        .preset-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .preset-btn { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; padding: 0.35rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 500; transition: all 0.2s; }
+        .preset-btn:hover { background: #e5e7eb; border-color: #9ca3af; }
+        .preset-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
 
         /* Charts */
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; }
@@ -114,6 +118,15 @@
             <button class="btn-primary" onclick="submitLog()">Submit Log</button>
             <span id="status"></span>
         </div>
+    </div>
+
+    <!-- Date Range Presets -->
+    <div class="preset-bar">
+        <button class="preset-btn" data-preset="7" onclick="applyDatePreset(7)">7 Days</button>
+        <button class="preset-btn" data-preset="30" onclick="applyDatePreset(30)">30 Days</button>
+        <button class="preset-btn" data-preset="90" onclick="applyDatePreset(90)">90 Days</button>
+        <button class="preset-btn" data-preset="365" onclick="applyDatePreset(365)">1 Year</button>
+        <button class="preset-btn" data-preset="all" onclick="applyDatePreset('all')">All Time</button>
     </div>
 
     <!-- Filters -->

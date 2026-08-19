@@ -21,6 +21,10 @@
 # host.env holds the real API key / secrets for the server — never commit it
 host.env
 
+# Dev environment files with secrets should not be tracked
+.env.dev
+.env.*.dev
+
 ###> friendsofphp/php-cs-fixer ###
 /.php-cs-fixer.php
 /.php-cs-fixer.cache

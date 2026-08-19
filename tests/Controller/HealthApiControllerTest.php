@@ -415,4 +415,115 @@ class HealthApiControllerTest extends WebTestCase
         $expectedKeys = ['id', 'timestamp', 'systolic', 'diastolic', 'heart_rate', 'weight', 'emoji'];
         self::assertEquals($expectedKeys, array_keys($body['data'][0]));
     }
+
+    // ── Stats endpoint (#103): GET /api/v1/logs/stats ──
+
+    public function testGetStatsReturnsEmptyWhenNoData(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/stats', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals(0, $data['count']);
+        self::assertNull($data['systolic']['avg']);
+        self::assertNull($data['systolic']['min']);
+        self::assertNull($data['systolic']['max']);
+        self::assertNull($data['weight']['avg']);
+    }
+
+    public function testGetStatsReturnsAggregatedMetrics(): void
+    {
+        $log1 = new HealthLog();
+        $log1->setSystolic(120)->setDiastolic(80)->setHeartRate(70)->setWeight(180.0);
+        $this->em->persist($log1);
+
+        $log2 = new HealthLog();
+        $log2->setSystolic(130)->setDiastolic(90)->setHeartRate(80)->setWeight(190.0);
+        $this->em->persist($log2);
+
+        $log3 = new HealthLog();
+        $log3->setSystolic(110)->setDiastolic(70)->setHeartRate(60)->setWeight(170.0);
+        $this->em->persist($log3);
+
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/stats', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+
+        self::assertEquals(3, $data['count']);
+
+        // Systolic: avg=(120+130+110)/3=120, min=110, max=130
+        self::assertEquals(120.0, $data['systolic']['avg']);
+        self::assertEquals(110, $data['systolic']['min']);
+        self::assertEquals(130, $data['systolic']['max']);
+
+        // Diastolic: avg=(80+90+70)/3=80, min=70, max=90
+        self::assertEquals(80.0, $data['diastolic']['avg']);
+        self::assertEquals(70, $data['diastolic']['min']);
+        self::assertEquals(90, $data['diastolic']['max']);
+
+        // Heart rate: avg=(70+80+60)/3=70, min=60, max=80
+        self::assertEquals(70.0, $data['heart_rate']['avg']);
+        self::assertEquals(60, $data['heart_rate']['min']);
+        self::assertEquals(80, $data['heart_rate']['max']);
+
+        // Weight: avg=(180+190+170)/3=180, min=170, max=190
+        self::assertEquals(180.0, $data['weight']['avg']);
+        self::assertEquals(170.0, $data['weight']['min']);
+        self::assertEquals(190.0, $data['weight']['max']);
+    }
+
+    public function testGetStatsFilteredByDateRange(): void
+    {
+        $old = new HealthLog(new \DateTimeImmutable('2025-01-01T10:00:00Z'));
+        $old->setSystolic(120)->setDiastolic(80)->setHeartRate(70)->setWeight(180.0);
+        $this->em->persist($old);
+
+        $new = new HealthLog(new \DateTimeImmutable('2025-06-01T14:00:00Z'));
+        $new->setSystolic(140)->setDiastolic(95)->setHeartRate(85)->setWeight(175.0);
+        $this->em->persist($new);
+
+        $this->em->flush();
+
+        // Query only June onwards
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/stats?from=2025-06-01', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+
+        self::assertEquals(1, $data['count']);
+        self::assertEquals(140, $data['systolic']['min']);
+        self::assertEquals(140, $data['systolic']['max']);
+        self::assertEquals(95, $data['diastolic']['min']);
+        self::assertEquals(175.0, $data['weight']['avg']);
+    }
+
+    public function testGetStatsRejectsInvalidDateRange(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/stats?from=2025-06-01&to=2025-01-01', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testGetStatsRequiresApiKey(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/stats', [], [], []);
+
+        self::assertResponseStatusCodeSame(401);
+    }
 }

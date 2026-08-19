@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Controller;
 
 use App\Entity\HealthLog;
@@ -120,7 +122,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(128, $data['systolic']);
         self::assertEquals(84, $data['diastolic']);
         self::assertEquals(76, $data['heart_rate']);
-        self::assertEquals(185.4, $data['weight'], 0.01);
+        self::assertEqualsWithDelta(185.4, $data['weight'], 0.01);
         self::assertEquals('🙂', $data['emoji']);
     }
 

@@ -442,19 +442,20 @@ function updateLatestReading(logs) {
 
     // logs are sorted ascending (oldest → newest), so last is latest
     const latest = logs[logs.length - 1];
+    const previous = logs.length >= 2 ? logs[logs.length - 2] : null;
 
     const parts = [];
     parts.push(`<span class="lr-emoji">${latest.emoji || '😐'}</span>`);
 
     const metrics = [];
     if (latest.systolic != null && latest.diastolic != null) {
-        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.systolic}/${latest.diastolic}</span><br>Blood Pressure</div>`);
+        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.systolic}/${latest.diastolic}</span>${formatReadingTrend(previous, latest, 'systolic', false)}<br>Blood Pressure</div>`);
     }
     if (latest.heart_rate != null) {
-        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.heart_rate}</span><br>Heart Rate (bpm)</div>`);
+        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.heart_rate}</span>${formatReadingTrend(previous, latest, 'heart_rate', false)}<br>Heart Rate (bpm)</div>`);
     }
     if (latest.weight != null) {
-        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.weight}</span><br>Weight (lbs)</div>`);
+        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.weight}</span>${formatReadingTrend(previous, latest, 'weight', true)}<br>Weight (lbs)</div>`);
     }
 
     if (metrics.length === 0) {
@@ -476,6 +477,20 @@ function updateLatestReading(logs) {
     parts.push(`<span class="lr-time">${timeStr}</span>`);
 
     container.innerHTML = parts.join('');
+}
+
+/**
+ * Compare a metric between the previous and latest reading.
+ * Returns an HTML span with ↑/↓ arrow and delta, or empty string if not comparable.
+ */
+function formatReadingTrend(previous, latest, field, isFloat) {
+    if (!previous || previous[field] == null || latest[field] == null) return '';
+    const delta = Number(latest[field]) - Number(previous[field]);
+    if (Math.abs(delta) < (isFloat ? 0.05 : 0.5)) return ' <span class="lr-trend flat">→</span>';
+    const arrow = delta > 0 ? '↑' : '↓';
+    const absDelta = Math.abs(delta).toFixed(isFloat ? 1 : 0);
+    const cls = delta > 0 ? 'up' : 'down';
+    return ` <span class="lr-trend ${cls}">${arrow} ${absDelta}</span>`;
 }
 
 function makeDataset(logs, field) {

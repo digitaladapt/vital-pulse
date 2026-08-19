@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -11,6 +12,11 @@ use Symfony\Component\Routing\Attribute\Route;
 class SystemController extends AbstractController
 {
     private const FALLBACK_VERSION = '1.4.2';
+
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+    ) {
+    }
 
     #[Route('/api/about', name: 'api_about', methods: ['GET'])]
     public function about(): JsonResponse
@@ -24,6 +30,17 @@ class SystemController extends AbstractController
     #[Route('/api/health', name: 'api_health', methods: ['GET'])]
     public function health(): JsonResponse
     {
+        // Verify database connectivity — the healthcheck is meaningless if the DB
+        // is corrupted, missing, or locked.
+        try {
+            $this->entityManager->getConnection()->executeQuery('SELECT 1')->fetchOne();
+        } catch (\Exception) {
+            return new JsonResponse([
+                'status' => 'unhealthy',
+                'error' => 'Database connection failed',
+            ], 503);
+        }
+
         return new JsonResponse([
             'status' => 'healthy',
         ]);

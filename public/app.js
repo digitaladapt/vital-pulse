@@ -31,8 +31,83 @@ document.addEventListener('DOMContentLoaded', () => {
     initFilterEmoji();
     setDefaultDates();
     setDefaultReadingDateTime();
+    initAutoAdvance();
     requestApiKeyIfMissing().then(() => renderCharts());
 });
+
+// ── Auto-Advance ──────────────────────────────────────────
+// Field order: sys → dia → hr-input → wt-input → mood → submit
+const AUTO_ADVANCE_FIELDS = ['sys', 'dia', 'hr-input', 'wt-input'];
+
+function initAutoAdvance() {
+    AUTO_ADVANCE_FIELDS.forEach((fieldId, index) => {
+        const input = document.getElementById(fieldId);
+        if (!input) return;
+
+        input.addEventListener('input', () => handleAutoAdvance(input, index));
+        input.addEventListener('keydown', (e) => handleAdvanceKey(e, index));
+    });
+}
+
+function handleAutoAdvance(input, index) {
+    // Weight (last in the chain) has no auto-advance — range too wide
+    if (index >= AUTO_ADVANCE_FIELDS.length - 1) return;
+
+    const value = input.value;
+    if (value.length === 0) return;
+
+    const firstDigit = parseInt(value[0]);
+
+    // If first digit is 0-2, it's likely a 3-digit number → advance after 3rd digit
+    // If first digit is 3-9, it's likely a 2-digit number → advance after 2nd digit
+    const expectedLength = (firstDigit >= 0 && firstDigit <= 2) ? 3 : 2;
+
+    if (value.length >= expectedLength) {
+        focusNextField(index);
+    }
+}
+
+function handleAdvanceKey(e, index) {
+    // Enter always advances to next field (or submits on last field)
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        focusNextField(index);
+        return;
+    }
+
+    // Backspace on empty field moves focus back
+    if (e.key === 'Backspace' && e.target.value.length === 0 && index > 0) {
+        e.preventDefault();
+        focusField(index - 1);
+    }
+}
+
+function focusNextField(index) {
+    // After the last numeric field, move to mood selector / submit
+    if (index >= AUTO_ADVANCE_FIELDS.length - 1) {
+        // Focus the first emoji option or the submit button
+        const firstEmoji = document.querySelector('.emoji-option');
+        if (firstEmoji) {
+            firstEmoji.focus();
+        } else {
+            document.querySelector('.btn-primary')?.focus();
+        }
+        return;
+    }
+    focusField(index + 1);
+}
+
+function focusField(index) {
+    const nextInput = document.getElementById(AUTO_ADVANCE_FIELDS[index]);
+    if (nextInput) {
+        nextInput.focus();
+        // Highlight animation
+        nextInput.classList.remove('auto-advance-highlight');
+        // Force reflow to restart animation
+        void nextInput.offsetWidth;
+        nextInput.classList.add('auto-advance-highlight');
+    }
+}
 
 function initMoodSelector() {
     const container = document.getElementById('mood-selector');
@@ -52,7 +127,6 @@ function initMoodSelector() {
 
 function initFilterEmoji() {
     const container = document.getElementById('filter-emoji');
-    const sel = document.getElementById('filter-emoji');
     EMOJIS.forEach(e => {
         const span = document.createElement('span');
         span.className = 'emoji-filter-option selected';

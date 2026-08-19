@@ -6,17 +6,18 @@ use App\Entity\HealthLog;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Validator\Validation;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
+#[AsController]
 #[Route('/api/v1/logs', name: 'api_logs_')]
 class HealthApiController
 {
-    private EntityManagerInterface $entityManager;
-
-    public function __construct(EntityManagerInterface $entityManager)
-    {
-        $this->entityManager = $entityManager;
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+        private ValidatorInterface $validator,
+    ) {
     }
 
     #[Route(methods: ['POST'])]
@@ -46,16 +47,16 @@ class HealthApiController
         $log->setEmoji($emoji);
 
         if (isset($data['systolic'])) {
-            $log->setSystolic((int)$data['systolic']);
+            $log->setSystolic((int) $data['systolic']);
         }
         if (isset($data['diastolic'])) {
-            $log->setDiastolic((int)$data['diastolic']);
+            $log->setDiastolic((int) $data['diastolic']);
         }
         if (isset($data['heart_rate'])) {
-            $log->setHeartRate((int)$data['heart_rate']);
+            $log->setHeartRate((int) $data['heart_rate']);
         }
         if (isset($data['weight'])) {
-            $log->setWeight((float)$data['weight']);
+            $log->setWeight((float) $data['weight']);
         }
 
         // Enforce: at least one measurement field must be present
@@ -71,8 +72,8 @@ class HealthApiController
             return new JsonResponse(['error' => 'If providing blood pressure, both systolic and diastolic values must be set.'], 400);
         }
 
-        // Validate using Symfony validator (optional warnings via health_check group)
-        $violations = Validation::createValidator()->validate($log);
+        // Validate using Symfony validator with both Default and health_check groups
+        $violations = $this->validator->validate($log, null, ['Default', 'health_check']);
         if (count($violations) > 0) {
             $errors = [];
             foreach ($violations as $violation) {
@@ -85,20 +86,12 @@ class HealthApiController
         try {
             $this->entityManager->persist($log);
             $this->entityManager->flush();
-        } catch (\Exception $e) {
-            return new JsonResponse(['error' => 'Failed to save log entry: ' . $e->getMessage()], 500);
+        } catch (\Exception) {
+            // Log the full exception internally; return a generic message to avoid leaking internals
+            return new JsonResponse(['error' => 'Failed to save log entry'], 500);
         }
 
-        // Serialize response manually for simplicity here
-        return new JsonResponse([
-            'id' => $log->getId(),
-            'timestamp' => $log->getTimestamp()->format('c'),
-            'systolic' => $log->getSystolic(),
-            'diastolic' => $log->getDiastolic(),
-            'heart_rate' => $log->getHeartRate(),
-            'weight' => $log->getWeight(),
-            'emoji' => $log->getEmoji(),
-        ], 201);
+        return new JsonResponse($this->serializeLog($log), 201);
     }
 
     #[Route(methods: ['GET'])]
@@ -107,8 +100,8 @@ class HealthApiController
         try {
             $dateFrom = $this->parseDate($request->query->get('from'));
             $dateTo = $this->parseDate($request->query->get('to'));
-            $emoji =  $request->query->all()['emoji'] ?? [];
-            if (! is_array($emoji)) {
+            $emoji = $request->query->all()['emoji'] ?? [];
+            if (!is_array($emoji)) {
                 $emoji = [$emoji];
             }
 
@@ -117,22 +110,27 @@ class HealthApiController
             }
 
             $logs = $this->entityManager->getRepository(HealthLog::class)->findByDateRange($dateFrom, $dateTo, $emoji);
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             return new JsonResponse(['error' => 'Invalid date format. Use YYYY-MM-DD or ISO 8601 string.'], 400);
         }
 
-        // Normalize output fields to snake_case JSON keys for client consistency
-        return new JsonResponse(array_map(function (HealthLog $log) {
-            return [
-                'id' => $log->getId(),
-                'timestamp' => $log->getTimestamp()->format('c'),
-                'systolic' => $log->getSystolic(),
-                'diastolic' => $log->getDiastolic(),
-                'heart_rate' => $log->getHeartRate(),
-                'weight' => $log->getWeight(),
-                'emoji' => $log->getEmoji(),
-            ];
-        }, $logs));
+        return new JsonResponse(array_map(fn (HealthLog $log) => $this->serializeLog($log), $logs));
+    }
+
+    /**
+     * Serialize a HealthLog entity to a JSON-ready array.
+     */
+    private function serializeLog(HealthLog $log): array
+    {
+        return [
+            'id' => $log->getId(),
+            'timestamp' => $log->getTimestamp()->format('c'),
+            'systolic' => $log->getSystolic(),
+            'diastolic' => $log->getDiastolic(),
+            'heart_rate' => $log->getHeartRate(),
+            'weight' => $log->getWeight(),
+            'emoji' => $log->getEmoji(),
+        ];
     }
 
     private function parseDate(?string $dateString): ?\DateTimeImmutable

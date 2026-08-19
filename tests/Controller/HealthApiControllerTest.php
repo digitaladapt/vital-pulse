@@ -511,4 +511,178 @@ class HealthApiControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(401);
     }
+
+    // ── Edge-case tests (#76): invalid input types and boundary conditions ──
+
+    public function testPostLogNonNumericSystolicReturns400(): void
+    {
+        $client = $this->client;
+        $payload = ['systolic' => 'abc', 'diastolic' => 80];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals('Validation failed', $data['error'] ?? '');
+        self::assertArrayHasKey('systolic', $data['details'] ?? []);
+    }
+
+    public function testPostLogNonNumericWeightReturns400(): void
+    {
+        $client = $this->client;
+        $payload = ['weight' => 'heavy'];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('weight', $data['details'] ?? []);
+    }
+
+    public function testPostLogStringWithDigitsSystolicReturns400(): void
+    {
+        // "12abc" should be rejected — filter_var rejects it, unlike (int) cast
+        $client = $this->client;
+        $payload = ['systolic' => '12abc', 'diastolic' => 80];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testPostLogLongEmojiStringReturns400(): void
+    {
+        $client = $this->client;
+        $payload = ['heart_rate' => 72, 'emoji' => str_repeat('🎉', 11)];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertStringContainsString('Emoji', $data['error'] ?? '');
+    }
+
+    public function testPostLogNullSystolicWithHeartRateReturns201(): void
+    {
+        // Explicit null for systolic should be treated as "not provided"
+        $client = $this->client;
+        $payload = ['systolic' => null, 'heart_rate' => 72];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertNull($data['systolic']);
+        self::assertEquals(72, $data['heart_rate']);
+    }
+
+    public function testPostLogAllFieldsNullReturns400(): void
+    {
+        // All fields null → no measurements → should 400
+        $client = $this->client;
+        $payload = ['systolic' => null, 'heart_rate' => null, 'weight' => null];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testPostLogNonObjectJsonStringReturns400(): void
+    {
+        $client = $this->client;
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode('just a string'));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testPostLogJsonArrayReturns400(): void
+    {
+        $client = $this->client;
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode([1, 2, 3]));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testPostLogNegativeSystolicReturns400(): void
+    {
+        $client = $this->client;
+        $payload = ['systolic' => -120, 'diastolic' => 80];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testPostLogNegativeWeightReturns400(): void
+    {
+        $client = $this->client;
+        $payload = ['weight' => -50.0];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testPostLogFloatSystolicReturns400(): void
+    {
+        // 120.5 is not a valid integer — filter_var with FILTER_VALIDATE_INT rejects it
+        $client = $this->client;
+        $payload = ['systolic' => 120.5, 'diastolic' => 80];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testPostLogBooleanSystolicReturns400(): void
+    {
+        // true would be cast to 1 by (int) — filter_var should reject it
+        $client = $this->client;
+        $payload = ['systolic' => true, 'diastolic' => 80];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testPostLogEmptyStringEmojiUsesDefault(): void
+    {
+        $client = $this->client;
+        $payload = ['heart_rate' => 72, 'emoji' => ''];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals('😐', $data['emoji']); // empty emoji falls back to default
+    }
+
 }

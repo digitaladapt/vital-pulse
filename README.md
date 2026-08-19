@@ -275,5 +275,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 - [**Symfony**](https://symfony.com/) — PHP framework and HTTP foundation
 - [**Doctrine ORM**](https://www.doctrine-project.org/) — database abstraction and persistence
-- [**Chart.js v4**](https://www.chartjs.org/) — flexible JavaScript charting
-- [**Luxon**](https://moment.github.io/luxon/) — modern date/time library for the Chart.js time axis
+- **[Chart.js v4.5.1](https://www.chartjs.org/)** — flexible JavaScript charting (vendored in `public/chartjs-v4.js`)
+- **[Luxon v3.7.2](https://moment.github.io/luxon/)** — modern date/time library for the Chart.js time axis (vendored in `public/luxon-v3.js`)
+- **[chartjs-adapter-luxon v1.3.1](https://github.com/chartjs/chartjs-adapter-luxon)** — adapter bridging Chart.js and Luxon (vendored in `public/chartjs-adapter-luxon-v1.js`)

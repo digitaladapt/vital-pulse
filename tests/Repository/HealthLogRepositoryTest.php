@@ -3,34 +3,28 @@
 namespace App\Tests\Repository;
 
 use App\Entity\HealthLog;
-use Doctrine\ORM\Tools\SchemaTool;
+use App\Repository\HealthLogRepository;
+use App\Tests\SchemaSetupTrait;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class HealthLogRepositoryTest extends KernelTestCase
 {
-    private \Doctrine\ORM\EntityManagerInterface $em;
-    private \App\Repository\HealthLogRepository $repo;
+    use SchemaSetupTrait;
+
+    private HealthLogRepository $repo;
 
     protected function setUp(): void
     {
         parent::setUp();
         self::bootKernel(['environment' => 'test']);
 
-        $this->em = static::getContainer()->get('doctrine')->getManager();
+        $this->setUpSchema();
         $this->repo = $this->em->getRepository(HealthLog::class);
-
-        // Build schema for in-memory SQLite (clean each test)
-        $metadataFactory = $this->em->getMetadataFactory();
-        $classes = array_filter($metadataFactory->getAllMetadata(), fn ($m) => $m->getName() === HealthLog::class);
-        $schemaTool = new SchemaTool($this->em);
-        if ($schemaTool->getSchemaFromMetadata($classes)->getTables()) {
-            $schemaTool->dropDatabase(array_values($classes));
-        }
-        $schemaTool->createSchema(array_values($classes));
     }
 
     protected function tearDown(): void
     {
+        $this->tearDownSchema();
         parent::tearDown();
         if (isset(static::$kernel)) {
             static::$kernel->shutdown();

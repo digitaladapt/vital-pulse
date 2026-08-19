@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class SystemController extends AbstractController
 {
-    private const FALLBACK_VERSION = '1.4.2';
+    private const FALLBACK_VERSION = 'unknown';
 
     public function __construct(
         private EntityManagerInterface $entityManager,

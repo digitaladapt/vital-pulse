@@ -3,14 +3,14 @@
 namespace App\Tests\Controller;
 
 use App\Entity\HealthLog;
+use App\Tests\SchemaSetupTrait;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Mapping as ORM;
-use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class HealthApiControllerTest extends WebTestCase
 {
-    private EntityManagerInterface $em;
+    use SchemaSetupTrait;
+
     private const API_KEY = 'test_api_key_12345'; // matches .env.test
 
     protected function setUp(): void
@@ -18,29 +18,13 @@ class HealthApiControllerTest extends WebTestCase
         parent::setUp();
 
         $this->client = static::createClient();
-        $this->em = static::getContainer()->get(EntityManagerInterface::class);
-
-        // Ensure schema is created for in-memory SQLite
-        $schemaTool = new SchemaTool($this->em);
-        $metadataFactory = $this->em->getMetadataFactory();
-        $classes = [];
-        foreach ($metadataFactory->getAllMetadata() as $class) {
-            // Only include HealthLog to keep schema minimal and fast
-            if ($class->getName() === HealthLog::class) {
-                $classes[] = $class;
-            }
-        }
-        $schemaTool->createSchema($classes);
+        $this->setUpSchema();
     }
 
     protected function tearDown(): void
     {
+        $this->tearDownSchema();
         parent::tearDown();
-
-        // Clear the in-memory database for each test
-        foreach ($this->em->getConnection()->createSchemaManager()->listTableNames() as $table) {
-            $this->em->getConnection()->executeStatement("DELETE FROM {$table}");
-        }
     }
 
     public function testPostLogMissingApiKeyReturns401(): void

@@ -51,7 +51,7 @@ COPY docker/entrypoint.sh /app/docker/entrypoint.sh
 RUN chmod +x /app/docker/entrypoint.sh
 
 # Create var directory for SQLite DB, logs, cache
-RUN mkdir -p /app/var
+RUN mkdir -p /app/var/data && chown -R nobody:nogroup /app/var
 
 # Environment defaults
 ENV APP_ENV=prod \
@@ -61,6 +61,9 @@ ENV APP_ENV=prod \
 
 # Volume for SQLite database, logs, and cache
 VOLUME /app/var
+
+# Run as non-root user for security
+USER nobody:nogroup
 
 EXPOSE 80
 

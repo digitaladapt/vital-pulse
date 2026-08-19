@@ -367,6 +367,11 @@ class HealthApiController
             return new JsonResponse(['error' => 'Validation failed', 'details' => $coercionErrors], 400);
         }
 
+        // Enforce: at least one measurement must remain after updates
+        if (!$log->hasMeasurements()) {
+            return new JsonResponse(['error' => 'At least one measurement is required (systolic, diastolic, heart_rate, or weight).'], 400);
+        }
+
         // BP consistency check
         $sys = $log->getSystolic();
         $dia = $log->getDiastolic();

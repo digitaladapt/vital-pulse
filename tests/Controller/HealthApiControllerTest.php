@@ -935,4 +935,439 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('🤩', $data['emoji']);
     }
 
+    // ── GET /api/v1/logs/{id} (#79): retrieve a single log by ID ──
+
+    public function testGetLogByIdRequiresApiKey(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/' . $log->getId());
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testGetLogByIdReturnsEntry(): void
+    {
+        $log = new HealthLog();
+        $log->setSystolic(120)->setDiastolic(80)->setHeartRate(72)->setWeight(180.5)->setEmoji('😀');
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals($log->getId(), $data['id']);
+        self::assertEquals(120, $data['systolic']);
+        self::assertEquals(80, $data['diastolic']);
+        self::assertEquals(72, $data['heart_rate']);
+        self::assertEqualsWithDelta(180.5, $data['weight'], 0.01);
+        self::assertEquals('😀', $data['emoji']);
+    }
+
+    public function testGetLogByIdReturns404ForMissingId(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/999999', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals('Log entry not found', $data['error']);
+    }
+
+    // ── PUT /api/v1/logs/{id} (#79): update a single log by ID ──
+
+    public function testUpdateLogRequiresApiKey(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['heart_rate' => 80]));
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testUpdateLogReturns404ForMissingId(): void
+    {
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/999999', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['heart_rate' => 80]));
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testUpdateLogInvalidJsonReturns400(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], 'not json');
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testUpdateLogHeartRateSucceeds(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72)->setEmoji('😀');
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['heart_rate' => 85]));
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals(85, $data['heart_rate']);
+    }
+
+    public function testUpdateLogSystolicAndDiastolicSucceeds(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['systolic' => 130, 'diastolic' => 85]));
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals(130, $data['systolic']);
+        self::assertEquals(85, $data['diastolic']);
+        self::assertEquals(72, $data['heart_rate']); // unchanged
+    }
+
+    public function testUpdateLogWeightSucceeds(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['weight' => 175.2]));
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEqualsWithDelta(175.2, $data['weight'], 0.01);
+    }
+
+    public function testUpdateLogTimestampSucceeds(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['timestamp' => '2025-03-15T08:30:00Z']));
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        $ts = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['timestamp']);
+        self::assertNotNull($ts);
+        self::assertEquals(new \DateTimeImmutable('2025-03-15T08:30:00Z'), $ts);
+    }
+
+    public function testUpdateLogFutureTimestampReturns400(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['timestamp' => '2099-01-01T00:00:00Z']));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('timestamp', $data['details'] ?? []);
+    }
+
+    public function testUpdateLogInvalidTimestampReturns400(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['timestamp' => 'not-a-date']));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('timestamp', $data['details'] ?? []);
+    }
+
+    public function testUpdateLogNonNumericSystolicReturns400(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['systolic' => 'abc']));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('systolic', $data['details'] ?? []);
+    }
+
+    public function testUpdateLogSystolicOutOfRangeReturns400(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['systolic' => 9999, 'diastolic' => 80]));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals('Validation failed', $data['error'] ?? '');
+    }
+
+    public function testUpdateLogClearingSystolicWithoutDiastolicReturns400(): void
+    {
+        $log = new HealthLog();
+        $log->setSystolic(120)->setDiastolic(80)->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        // Try to clear only systolic (set to null) while diastolic remains
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['systolic' => null]));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertStringContainsString('both systolic and diastolic', strtolower((string) ($data['error'] ?? '')));
+    }
+
+    public function testUpdateLogClearingAllMeasurementsReturns400(): void
+    {
+        $log = new HealthLog();
+        $log->setSystolic(120)->setDiastolic(80)->setHeartRate(72)->setWeight(180.0);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode([
+            'systolic' => null,
+            'diastolic' => null,
+            'heart_rate' => null,
+            'weight' => null,
+        ]));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertStringContainsString('at least one measurement', strtolower((string) ($data['error'] ?? '')));
+    }
+
+    public function testUpdateLogEmptyBodyReturns400(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], '');
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testUpdateLogNoFieldsPreservesEntry(): void
+    {
+        $log = new HealthLog();
+        $log->setSystolic(120)->setDiastolic(80)->setHeartRate(72)->setWeight(180.0)->setEmoji('😀');
+        $this->em->persist($log);
+        $this->em->flush();
+
+        // Empty JSON object — no fields to update, should just return the log as-is
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode([]));
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertEquals(120, $data['systolic']);
+        self::assertEquals(80, $data['diastolic']);
+        self::assertEquals(72, $data['heart_rate']);
+        self::assertEqualsWithDelta(180.0, $data['weight'], 0.01);
+        self::assertEquals('😀', $data['emoji']);
+    }
+
+    public function testUpdateLogLongEmojiReturns400(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['emoji' => str_repeat('🎉', 11)]));
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('emoji', $data['details'] ?? []);
+    }
+
+    // ── DELETE /api/v1/logs/{id} (#79): delete a single log by ID ──
+
+    public function testDeleteLogRequiresApiKey(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('DELETE', '/api/v1/logs/' . $log->getId());
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testDeleteLogReturns404ForMissingId(): void
+    {
+        $client = $this->client;
+        $client->request('DELETE', '/api/v1/logs/999999', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testDeleteLogSucceedsAndReturns204(): void
+    {
+        $log = new HealthLog();
+        $log->setSystolic(120)->setDiastolic(80)->setHeartRate(72)->setEmoji('😀');
+        $this->em->persist($log);
+        $this->em->flush();
+        $id = $log->getId();
+
+        $client = $this->client;
+        $client->request('DELETE', '/api/v1/logs/' . $id, [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(204);
+
+        // Verify the log is actually gone
+        $client->request('GET', '/api/v1/logs/' . $id, [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testDeleteLogThenGetReturns404(): void
+    {
+        $log = new HealthLog();
+        $log->setHeartRate(72);
+        $this->em->persist($log);
+        $this->em->flush();
+        $id = $log->getId();
+
+        $client = $this->client;
+        $client->request('DELETE', '/api/v1/logs/' . $id, [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+        self::assertResponseStatusCodeSame(204);
+
+        // Second delete should return 404
+        $client->request('DELETE', '/api/v1/logs/' . $id, [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testDeleteLogRemovesItFromList(): void
+    {
+        $log1 = new HealthLog();
+        $log1->setHeartRate(70);
+        $this->em->persist($log1);
+
+        $log2 = new HealthLog();
+        $log2->setHeartRate(80);
+        $this->em->persist($log2);
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('DELETE', '/api/v1/logs/' . $log1->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+        self::assertResponseStatusCodeSame(204);
+
+        // Verify only one entry remains in the list
+        $client->request('GET', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+        self::assertResponseStatusCodeSame(200);
+        $body = json_decode($client->getResponse()->getContent(), true);
+        self::assertCount(1, $body['data']);
+        self::assertEquals(80, $body['data'][0]['heart_rate']);
+    }
+
 }

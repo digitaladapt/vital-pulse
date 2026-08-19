@@ -272,6 +272,7 @@ async function renderCharts() {
     logs.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
     updateStats(logs);
+    updateLatestReading(logs);
 
     try {
         renderBpChart(logs);
@@ -307,6 +308,53 @@ function updateStats(logs) {
     document.getElementById('avg-dia').textContent = avg(logs.map(l => l.diastolic));
     document.getElementById('avg-hr').textContent = avg(logs.map(l => l.heart_rate));
     document.getElementById('avg-wt').textContent = avg(logs.map(l => l.weight));
+}
+
+function updateLatestReading(logs) {
+    const container = document.getElementById('latest-reading');
+    if (!container) return;
+
+    if (logs.length === 0) {
+        container.innerHTML = '<span class="lr-empty">No readings yet. Submit your first log above!</span>';
+        return;
+    }
+
+    // logs are sorted ascending (oldest → newest), so last is latest
+    const latest = logs[logs.length - 1];
+
+    const parts = [];
+    parts.push(`<span class="lr-emoji">${latest.emoji || '😐'}</span>`);
+
+    const metrics = [];
+    if (latest.systolic != null && latest.diastolic != null) {
+        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.systolic}/${latest.diastolic}</span><br>Blood Pressure</div>`);
+    }
+    if (latest.heart_rate != null) {
+        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.heart_rate}</span><br>Heart Rate (bpm)</div>`);
+    }
+    if (latest.weight != null) {
+        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.weight}</span><br>Weight (lbs)</div>`);
+    }
+
+    if (metrics.length === 0) {
+        metrics.push('<div class="lr-metric"><span class="lr-value">—</span><br>No measurements</div>');
+    }
+
+    parts.push(`<div class="lr-metrics">${metrics.join('')}</div>`);
+
+    // Format timestamp for display
+    let timeStr = 'Unknown time';
+    if (latest.timestamp) {
+        try {
+            const d = new Date(latest.timestamp);
+            timeStr = d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        } catch {
+            timeStr = latest.timestamp;
+        }
+    }
+    parts.push(`<span class="lr-time">${timeStr}</span>`);
+
+    container.innerHTML = parts.join('');
 }
 
 function makeDataset(logs, field) {

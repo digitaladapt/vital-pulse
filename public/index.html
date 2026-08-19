@@ -48,6 +48,15 @@
         .chart-title { font-size: 0.9rem; font-weight: 600; color: #4b5563; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
         canvas { height: 280px; width: 100%; }
 
+        /* Latest Reading Card */
+        .latest-reading { background: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; display: flex; gap: 2rem; flex-wrap: wrap; align-items: center; }
+        .latest-reading .lr-emoji { font-size: 2.5rem; }
+        .latest-reading .lr-metrics { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+        .latest-reading .lr-metric { font-size: 0.85rem; color: #4b5563; }
+        .latest-reading .lr-metric .lr-value { font-size: 1.25rem; font-weight: bold; color: #1e3a5f; }
+        .latest-reading .lr-time { font-size: 0.8rem; color: #9ca3af; margin-left: auto; }
+        .latest-reading .lr-empty { color: #9ca3af; font-size: 0.9rem; }
+
         /* Stats */
         .stats-bar { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
         .stat-item { background: white; padding: 0.8rem 1.2rem; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 0.85rem; color: #4b5563; }
@@ -114,6 +123,11 @@
         </div>
         <button class="btn-primary" style="align-self:flex-end;" onclick="renderCharts()">Apply Filters</button>
         <button class="btn-primary" style="align-self:flex-end;background:#059669;" onclick="exportCsv()">Export CSV</button>
+    </div>
+
+    <!-- Latest Reading Card -->
+    <div class="latest-reading" id="latest-reading">
+        <span class="lr-empty">No readings yet. Submit your first log above!</span>
     </div>
 
     <!-- Stats Bar -->

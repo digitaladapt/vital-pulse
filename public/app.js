@@ -7,23 +7,24 @@ let selectedEmoji = '😐';
 let filterEmojis = new Set(); // emoji(s) currently selected for filtering
 let bpChart, hrChart, wtChart;
 
-const commonOptions = {
-    responsive: true,
-    maintainAspectRatio: true,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
-        tooltip: { callbacks: { afterBody(items) {
-            return items[0].raw.emoji;
+function getCommonOptions() {
+    return {
+        responsive: true,
+        maintainAspectRatio: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+            tooltip: { callbacks: { afterBody(items) {
+                return items[0].raw.emoji;
     } } } },
-    scales: { x: {
-        type: 'time',
-        adapters: { date: { zone: 'utc' } },
-        time: { tooltipFormat: 'MMM d, h:mm a',
-            displayFormats: { day: 'MMM d', week: 'MMM d', month: 'MMM yyyy' } },
-        ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } }
-    } }
-};
+        scales: { x: {
+            type: 'time',
+            adapters: { date: { zone: 'utc' } },
+            time: { tooltipFormat: 'MMM d, h:mm a',
+                displayFormats: { day: 'MMM d', week: 'MMM d', month: 'MMM yyyy' } },
+            ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } }
+    } } };
+}
 
 // ── Initialization ────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -176,17 +177,55 @@ async function requestApiKeyIfMissing() {
 }
 
 // ── Data Fetching ─────────────────────────────────────────
-async function fetchLogs() {
+async function fetchLogs(retryCount = 0) {
     const from = document.getElementById('filter-from').value || null;
     const to = document.getElementById('filter-to').value || null;
-    const emojiFilter = document.getElementById('filter-emoji').value || null;
 
     let url = '/api/v1/logs?';
     if (from) url += `from=${encodeURIComponent(from)}&`;
     if (to) url += `to=${encodeURIComponent(to)}&`;
-    if (emojiFilter) url += `emoji=${encodeURIComponent(emojiFilter)}&`;
 
     // If some emojis selected but not all, send them as emoji[]=x&emoji[]=y
+    const filterArray = Array.from(filterEmojis);
+    if (filterArray.length > 0 && filterArray.length < EMOJIS.length) {
+        for (const e of filterArray) {
+            url += `emoji[]=${encodeURIComponent(e)}&`;
+        }
+    }
+
+    try {
+        const resp = await fetch(url, {
+            headers: { 'X-API-Key': apiKey }
+        });
+        if (!resp.ok) {
+            if (resp.status === 401 && retryCount < 1) {
+                localStorage.removeItem(API_KEY_STORAGE);
+                apiKey = prompt('API key invalid. Enter correct API key:');
+                if (!apiKey) return null;
+                localStorage.setItem(API_KEY_STORAGE, apiKey);
+                return fetchLogs(retryCount + 1); // retry once
+            }
+            throw new Error(`Server error ${resp.status}`);
+        }
+        const json = await resp.json();
+        // Handle paginated response: extract data array
+        return Array.isArray(json) ? json : (json.data || []);
+    } catch (err) {
+        console.error('Fetch failed:', err);
+        alert('Could not load data from server: ' + err.message);
+        return null;
+    }
+}
+
+// ── CSV Export ────────────────────────────────────────────
+async function exportCsv() {
+    const from = document.getElementById('filter-from').value || null;
+    const to = document.getElementById('filter-to').value || null;
+
+    let url = '/api/v1/logs/export?';
+    if (from) url += `from=${encodeURIComponent(from)}&`;
+    if (to) url += `to=${encodeURIComponent(to)}&`;
+
     const filterArray = Array.from(filterEmojis);
     if (filterArray.length > 0 && filterArray.length < EMOJIS.length) {
         for (const e of filterArray) {
@@ -202,17 +241,25 @@ async function fetchLogs() {
             if (resp.status === 401) {
                 localStorage.removeItem(API_KEY_STORAGE);
                 apiKey = prompt('API key invalid. Enter correct API key:');
-                if (!apiKey) return null;
-                localStorage.setItem(API_KEY_STORAGE, apiKey);
-                return fetchLogs(); // retry
+                if (apiKey) {
+                    localStorage.setItem(API_KEY_STORAGE, apiKey);
+                    return exportCsv();
+                }
             }
             throw new Error(`Server error ${resp.status}`);
         }
-        return await resp.json();
+        const blob = await resp.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = 'vitalpulse_export.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
     } catch (err) {
-        console.error('Fetch failed:', err);
-        alert('Could not load data from server: ' + err.message);
-        return null;
+        console.error('CSV export failed:', err);
+        alert('Could not export CSV: ' + err.message);
     }
 }
 
@@ -225,10 +272,18 @@ async function renderCharts() {
     logs.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
     updateStats(logs);
-    renderBpChart(logs);
-    renderHrChart(logs);
-    renderWtChart(logs);
-}
+
+    try {
+        renderBpChart(logs);
+        renderHrChart(logs);
+        renderWtChart(logs);
+    } catch (err) {
+        console.error('Chart rendering failed:', err);
+        const grid = document.querySelector('.grid');
+        if (grid) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:#991b1b;">Could not render charts. Please check the console for details.</div>';
+        }
+    }
 
 function updateStats(logs) {
     const n = logs.length;
@@ -274,7 +329,7 @@ function renderBpChart(logs) {
             { label: 'Systolic',  data: makeDataset(logs, 'systolic' ), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', tension: 0.4 },
             { label: 'Diastolic', data: makeDataset(logs, 'diastolic'), borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', tension: 0.4 }
         ] },
-        options: commonOptions
+        options: getCommonOptions()
     });
 }
 
@@ -287,7 +342,7 @@ function renderHrChart(logs) {
         data: { datasets: [
             { label: 'Heart Rate', data: makeDataset(logs, 'heart_rate'), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4 }
         ] },
-        options: commonOptions
+        options: getCommonOptions()
     });
 }
 
@@ -300,7 +355,7 @@ function renderWtChart(logs) {
         data: { datasets: [
             { label: 'Weight', data: makeDataset(logs, 'weight'), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.1)', tension: 0.4 }
         ] },
-        options: commonOptions
+        options: getCommonOptions()
     });
 }
 

@@ -8,6 +8,7 @@ use App\Entity\HealthLog;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -182,6 +183,54 @@ class HealthApiController
                 'pages' => $pages,
             ],
         ]);
+    }
+
+    #[Route('/export', methods: ['GET'])]
+    public function exportCsv(Request $request): Response
+    {
+        try {
+            $dateFrom = $this->parseDate($request->query->get('from'));
+            $dateTo = $this->parseDate($request->query->get('to'));
+            $emoji = $request->query->all()['emoji'] ?? [];
+            if (!is_array($emoji)) {
+                $emoji = [$emoji];
+            }
+
+            if ($dateTo !== null && $dateFrom !== null && $dateFrom > $dateTo) {
+                return new JsonResponse(['error' => 'Invalid date range: "from" must be before or equal to "to".'], 400);
+            }
+        } catch (\Exception) {
+            return new JsonResponse(['error' => 'Invalid date format. Use YYYY-MM-DD or ISO 8601 string.'], 400);
+        }
+
+        $repo = $this->entityManager->getRepository(HealthLog::class);
+        $logs = $repo->findByDateRange($dateFrom, $dateTo, $emoji, self::MAX_PAGE_SIZE, 0);
+
+        // Build CSV content
+        $handle = fopen('php://temp', 'r+');
+        // BOM for Excel UTF-8 compatibility
+        fwrite($handle, "\xEF\xBB\xBF");
+        fputcsv($handle, ['id', 'timestamp', 'systolic', 'diastolic', 'heart_rate', 'weight', 'emoji']);
+        foreach ($logs as $log) {
+            fputcsv($handle, [
+                $log->getId(),
+                $log->getTimestamp()->format('c'),
+                $log->getSystolic(),
+                $log->getDiastolic(),
+                $log->getHeartRate(),
+                $log->getWeight(),
+                $log->getEmoji(),
+            ]);
+        }
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        $response = new Response($csv);
+        $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="vitalpulse_export.csv"');
+
+        return $response;
     }
 
     #[Route('/stats', methods: ['GET'])]

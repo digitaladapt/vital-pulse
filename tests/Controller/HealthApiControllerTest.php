@@ -823,6 +823,97 @@ class HealthApiControllerTest extends WebTestCase
         self::assertArrayHasKey('emoji', $data['details'] ?? []);
     }
 
+    // ── CSV Export (#100): GET /api/v1/logs/export ──
+
+    public function testExportCsvRequiresApiKey(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/export', [], [], []);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testExportCsvReturnsEmptyCsvWithHeadersOnly(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/export', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertEquals('text/csv; charset=utf-8', $client->getResponse()->headers->get('Content-Type'));
+        self::assertStringContainsString('attachment', $client->getResponse()->headers->get('Content-Disposition'));
+
+        $content = $client->getResponse()->getContent();
+        // BOM + header row only
+        self::assertStringStartsWith("\xEF\xBB\xBF" . 'id,timestamp,systolic,diastolic,heart_rate,weight,emoji', $content);
+    }
+
+    public function testExportCsvReturnsDataRows(): void
+    {
+        $log1 = new HealthLog();
+        $log1->setSystolic(120)->setDiastolic(80)->setHeartRate(72)->setWeight(180.5)->setEmoji('😀');
+        $this->em->persist($log1);
+
+        $log2 = new HealthLog();
+        $log2->setHeartRate(65)->setEmoji('🙂');
+        $this->em->persist($log2);
+
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/export', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $content = $client->getResponse()->getContent();
+        // Should contain header + 2 data rows
+        $lines = str_getcsv(str_replace("\xEF\xBB\xBF", '', $content), "\n");
+        // First line is header
+        self::assertStringContainsString('id,timestamp,systolic,diastolic,heart_rate,weight,emoji', $lines[0]);
+        // Should contain both emojis
+        self::assertStringContainsString('😀', $content);
+        self::assertStringContainsString('🙂', $content);
+        // Should contain systolic value
+        self::assertStringContainsString('120', $content);
+        self::assertStringContainsString('80', $content);
+    }
+
+    public function testExportCsvFilteredByDateRange(): void
+    {
+        $old = new HealthLog(new \DateTimeImmutable('2025-01-01T10:00:00Z'));
+        $old->setHeartRate(70);
+        $this->em->persist($old);
+
+        $new = new HealthLog(new \DateTimeImmutable('2025-06-01T14:00:00Z'));
+        $new->setHeartRate(80);
+        $this->em->persist($new);
+
+        $this->em->flush();
+
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/export?from=2025-06-01', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $content = $client->getResponse()->getContent();
+        // Should only contain the newer entry's heart rate
+        self::assertStringContainsString('80', $content);
+        self::assertStringNotContainsString('70', $content);
+    }
+
+    public function testExportCsvRejectsInvalidDateRange(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/export?from=2025-06-01&to=2025-01-01', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
     public function testUpdateLogValidEmojiSucceeds(): void
     {
         // First create a valid log

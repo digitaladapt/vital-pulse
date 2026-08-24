@@ -41,6 +41,110 @@ document.addEventListener('DOMContentLoaded', () => {
 // Field order: sys → dia → hr-input → wt-input → mood → submit
 const AUTO_ADVANCE_FIELDS = ['sys', 'dia', 'hr-input', 'wt-input'];
 
+// ── Soft Validation Warnings ───────────────────────────────
+// "Warn, don't block" — gentle frontend nudges for abnormal values.
+// These are purely informational; the server still accepts any value.
+const VALIDATION_THRESHOLDS = {
+    sys: [
+        { low: 80,   high: 120, msg: 'Systolic looks normal 👍' },
+        { low: 120,  high: 140, msg: 'Slightly elevated — keep an eye on it.' },
+        { low: 140,  high: 160, msg: "BP is in the high range. Is that correct?" },
+        { low: 160,  high: Infinity, msg: 'Quite high BP — double-check?' }
+    ],
+    dia: [
+        { low: 60,   high: 80,  msg: 'Diastolic looks normal 👍' },
+        { low: 80,   high: 90,  msg: 'Slightly elevated — keep an eye on it.' },
+        { low: 90,   high: 100, msg: "BP is in the high range. Is that correct?" },
+        { low: 100,  high: Infinity, msg: 'Quite high BP — double-check?' }
+    ],
+    hr: [
+        { low: 50,   high: 100, msg: 'Resting heart rate looks normal 👍' },
+        { low: 40,   high: 50,  msg: 'Low resting HR — are you an athlete?' },
+        { low: 100,  high: 120, msg: 'Elevated resting heart rate.' },
+        { low: 120,  high: Infinity, msg: 'High resting heart rate — felt okay?' }
+    ],
+    wt: [
+        { low: 70,   high: 350, msg: null }, // no general warning
+        { low: 350,  high: Infinity, msg: 'That is quite a heavy weight — sure?' }
+    ]
+};
+
+
+function checkValidation(fieldId) {
+    const input = document.getElementById(fieldId);
+    if (!input || !input.value) return null;
+    
+    const val = parseFloat(input.value);
+    if (isNaN(val)) return null;
+    
+    // Only warn for values in a plausible but abnormal range
+    if (val <= 0) return null; // negative numbers get no special warning
+    
+    const thresholds = VALIDATION_THRESHOLDS[fieldId];
+    if (!thresholds) return null;
+    
+    for (const t of thresholds) {
+        if (val >= t.low && val < t.high) {
+            return { field: fieldId, message: t.msg };
+        }
+    }
+    return null;
+}
+
+function showWarning(message) {
+    const banner = document.getElementById('reading-warning');
+    if (!banner) return;
+    
+    // Find or create the warning text container
+    let textEl = banner.querySelector('.warning-text');
+    if (textEl) {
+        textEl.textContent = message;
+    } else {
+        const span = document.createElement('span');
+        span.className = 'warning-text';
+        span.textContent = message;
+        banner.prepend(span);
+    }
+    
+    banner.classList.remove('hidden');
+}
+
+function hideWarning() {
+    const banner = document.getElementById('reading-warning');
+    if (!banner) return;
+    
+    const textEl = banner.querySelector('.warning-text');
+    if (textEl) textEl.textContent = '';
+    banner.classList.add('hidden');
+}
+
+function dismissWarning() {
+    hideWarning();
+}
+
+// ── Soft Validation on Input (per-field, real-time) ─────────
+const VALIDATION_FIELDS = ['sys', 'dia', 'hr-input'];
+
+VALIDATION_FIELDS.forEach(fieldId => {
+    const input = document.getElementById(fieldId);
+    if (!input) return;
+
+    // Show warning when user types into this field
+    input.addEventListener('input', () => {
+        const result = checkValidation(fieldId);
+        if (result?.message) {
+            showWarning(`⚠️ ${result.message}`);
+        }
+    });
+
+    // Hide the per-field warning when user clears the input
+    input.addEventListener('blur', () => {
+        if (!input.value) hideWarning();
+    });
+});
+
+// ── Auto-Advance ──────────────────────────────────────────
+
 function initAutoAdvance() {
     AUTO_ADVANCE_FIELDS.forEach((fieldId, index) => {
         const input = document.getElementById(fieldId);

@@ -44,6 +44,11 @@ jobs:
       - name: Copy environment file
         run: cp .env.test .env
 
+      # Ensure var/data/ exists for SQLite — the directory is tracked via
+      # .gitkeep but this is a belt-and-suspenders safeguard.
+      - name: Create data directory
+        run: mkdir -p var/data
+
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist
 

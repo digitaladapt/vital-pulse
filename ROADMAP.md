@@ -1,6 +1,6 @@
 # VitalPulse — Project Roadmap
 
-> Last updated: 2026-08-25 (pre-release audit for public v1.0)
+> Last updated: 2026-08-25 (updated to reflect compose.yaml and Docker fixes)
 
 ## Project Overview
 
@@ -55,8 +55,12 @@ body weight, and mood (emoji) in a single unified log entry.
 - ✅ **Test suite** — controller (HealthApi, System, PublicAsset),
       entity, repository, and security tests; schema bootstrapped via
       `SchemaSetupTrait`
-- ✅ Dockerfile — clean multi-stage FrankenPHP build
-- ✅ compose.yaml — defaults to SQLite, single service
+- ✅ Dockerfile — clean multi-stage FrankenPHP build, runs as
+      non-root (`nobody:nogroup`)
+- ✅ Docker healthcheck — calls `/api/health` which verifies DB
+      connectivity (`SELECT 1` against SQLite)
+- ✅ compose.yaml — defaults to SQLite, single service, uses default
+      Compose network (no external network dependency)
 - ✅ Caddyfile for reverse proxy deployment
 - ✅ Comprehensive README, LICENSE (MIT), CONTRIBUTING.md,
       CODE_OF_CONDUCT.md, CHANGELOG.md
@@ -72,11 +76,6 @@ body weight, and mood (emoji) in a single unified log entry.
 - ❌ **README/ROADMAP cross-check** — README was fixed (stale
       `AUTH_SECRET`, wrong defaults, wrong test count) but keep docs in
       sync going forward
-- ❌ Docker image runs as root — add a `USER` directive / non-root
-      FrankenPHP runtime (pre-release security TODO)
-- ❌ Docker healthcheck doesn't verify DB connectivity
-- ❌ compose.yaml uses an external `public` network that is
-      undocumented for new users
 
 ---
 
@@ -164,7 +163,8 @@ robust before adding features or publishing.
 - [x] **Security hardening (partial):**
   - [x] Security headers (CSP, X-Content-Type-Options, etc.)
   - [ ] Rate limiting on API endpoints
-  - [ ] Ensure `APP_ENV=prod` disables debug output (verify in image)
+  - [x] Ensure `APP_ENV=prod` disables debug output (Dockerfile sets
+        `ENV APP_ENV=prod`, entrypoint warms prod cache)
 - [x] **Error response consistency** — standardised error payloads; no
       internal exception leakage in 500s
 - [x] **Comprehensive test coverage** — edge cases, invalid input
@@ -197,11 +197,12 @@ endpoint.
   - [x] SQLite by default
   - [x] Migrations run on container startup
   - [x] `APP_ENV=prod` in the image
-  - [ ] Non-root `USER` in the final image
-  - [ ] Healthcheck that verifies DB connectivity
+  - [x] Non-root `USER` in the final image (`USER nobody:nogroup`)
+  - [x] Healthcheck that verifies DB connectivity (`/api/health`
+        endpoint runs a `SELECT 1` against SQLite)
 - [x] **compose.yaml cleanup** — defaults to SQLite (single service),
-      secrets via `.env`/environment
-  - [ ] Document the external `public` network requirement
+      secrets via `.env`/environment; external `public` network removed
+      (belongs in local production override only)
 - [ ] **Docker Hub publishing:**
   - [ ] Build and tag `docker.io/<user>/vital-pulse:latest`
   - [ ] Version tags (`:v1.0.0`, `:1.0`, `:1`)
@@ -236,8 +237,8 @@ endpoint.
       trend display
 - [ ] **Documentation:**
   - [x] API reference + deployment guide in README
-  - [ ] Backfill CHANGELOG entries for v1.4.0–v1.5.1
-  - [ ] Keep-a-Changelog update for v1.0.0
+  - [x] Backfill CHANGELOG entries for v1.4.0–v1.5.1
+  - [x] Keep-a-Changelog format applied to Unreleased section
 - [ ] **Release process:**
   - [ ] Tag `v1.0.0`
   - [ ] GitHub release with release notes and screenshots

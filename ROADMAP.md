@@ -134,7 +134,7 @@ frontend, not hard rejections.*
 | `API_KEY`      | `change_me_to_a_strong_secret_key_...`                    | API key for authentication |
 | `APP_ENV`      | `dev` (`prod` in Docker)                                  | Symfony environment        |
 | `APP_SECRET`   | *(generated)*                                             | Symfony secret             |
-| `DEFAULT_URI`  | `https://vitals.devgnome.com`                             | FrankenPHP base URI        |
+| `DEFAULT_URI`  | `http://localhost`                                        | FrankenPHP base URI        |
 
 ---
 
@@ -336,7 +336,7 @@ analysis** rather than automated logging.
 ### Deployment
 
 1. **Caddy reverse proxy** (`Caddyfile`) — serves static frontend
-   files, proxies `/api/*`. Domain: `vitals.devgnome.com`.
+   files, proxies `/api/*`.
 2. **Docker Compose** — FrankenPHP app container with SQLite, defaults
    to `APP_ENV=prod`, migrations at startup.
 

@@ -44,7 +44,7 @@ Feature requests are welcome! Please:
 ### Clone & Install
 
 ```bash
-git clone https://github.com/your-user/vital-pulse.git
+git clone https://github.com/digitaladapt/vital-pulse.git
 cd vital-pulse
 composer install
 ```
@@ -57,11 +57,11 @@ The test environment is pre-configured in `.env.test`:
 APP_ENV=test
 APP_SECRET=test_secret_for_unit_tests
 DEFAULT_URI=http://localhost
-DATABASE_URL="sqlite:///:memory:"
+DATABASE_URL="sqlite:///%kernel.project_dir%/var/data/test.db"
 API_KEY=test_api_key_12345
 ```
 
-No additional configuration is needed to run tests — the test suite uses an in-memory SQLite database.
+No additional configuration is needed to run tests — the test suite uses a file-based SQLite database (`var/data/test.db`).
 
 ### Start the Dev Server
 
@@ -94,7 +94,7 @@ The dev server binds to `0.0.0.0:8848` and uses a separate SQLite database
 | Port | `8848` |
 
 The server is accessible at `http://localhost:8848` locally, or via a
-reverse proxy at `https://vitals.lyra-dev.devgnome.com`.
+reverse proxy.
 
 ---
 
@@ -150,7 +150,7 @@ php vendor/bin/php-cs-fixer fix
    ```bash
    php vendor/bin/phpunit
    ```
-   Ensure all 37 tests pass.
+   Ensure all tests pass.
 5. **Commit your changes** (see commit conventions below).
 6. **Push** to your fork and open a pull request against `main`.
 7. **Describe your changes** in the PR description — what changed, why, and any breaking changes.

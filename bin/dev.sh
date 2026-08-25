@@ -21,7 +21,7 @@
 #   bin/dev.sh restart   Stop and start the dev server
 #
 # Port assignment (dial-pad mnemonic: V-I-T = 8-4-8):
-#   8848 → https://vitals.lyra-dev.devgnome.com
+#   8848 → accessible via reverse proxy if configured
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -93,7 +93,7 @@ print_status() {
         echo "   PID:     $pid"
         echo "   URL:     http://localhost:${PORT}"
         echo "   Exposed: http://${HOST}:${PORT}"
-        echo "   Dev URL: https://vitals.lyra-dev.devgnome.com"
+        echo "   Dev URL: http://localhost:${PORT} (or via reverse proxy)"
         echo "   DB:      ${DEV_DB}"
         echo "   Logs:    ${LOG_FILE}"
     else

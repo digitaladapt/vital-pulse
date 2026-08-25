@@ -28,7 +28,7 @@
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-user/vital-pulse.git
+git clone https://github.com/digitaladapt/vital-pulse.git
 cd vital-pulse
 
 # Copy the environment template and set your API key
@@ -46,7 +46,7 @@ The API and dashboard are both available at `http://localhost:8080` (or whatever
 ```bash
 # Prerequisites: PHP 8.4+, Composer, SQLite3
 
-git clone https://github.com/your-user/vital-pulse.git
+git clone https://github.com/digitaladapt/vital-pulse.git
 cd vital-pulse
 composer install
 
@@ -206,7 +206,7 @@ The `HealthLog` entity stores a single health check-in entry.
 ### Setup
 
 ```bash
-git clone https://github.com/your-user/vital-pulse.git
+git clone https://github.com/digitaladapt/vital-pulse.git
 cd vital-pulse
 composer install
 ```

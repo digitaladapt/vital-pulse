@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Final polish pass ahead of the public v1.0 release.
+## [1.6.0] - 2026-08-25
+
+Public release: GitHub + Docker Hub publishing, documentation
+polish, and CI workflows for GitHub sync and Docker Hub builds.
+
+### Added
+- Gitea Actions workflow for GitHub mirror sync (`publish.yaml`)
+- Gitea Actions workflow for Docker Hub multi-arch builds on
+  tag push (`docker.yaml`)
+
+### Changed
+- All repository URLs updated from placeholder to
+  `digitaladapt/vital-pulse`
+- Internal domain references genericized for public release
+- CONTRIBUTING.md: corrected test database description and test
+  count reference
 
 ### Added
 - Full CRUD API: `GET`/`PUT`/`DELETE /api/v1/logs/{id}` endpoints
@@ -180,16 +195,17 @@ Final polish pass ahead of the public v1.0 release.
 
 ---
 
-[Unreleased]: https://github.com/your-user/vital-pulse/compare/v1.5.1...HEAD
-[1.5.1]: https://github.com/your-user/vital-pulse/compare/v1.5.0...v1.5.1
-[1.5.0]: https://github.com/your-user/vital-pulse/compare/v1.4.2...v1.5.0
-[1.4.2]: https://github.com/your-user/vital-pulse/compare/v1.4.1...v1.4.2
-[1.4.1]: https://github.com/your-user/vital-pulse/compare/v1.4.0...v1.4.1
-[1.4.0]: https://github.com/your-user/vital-pulse/compare/v1.3.0...v1.4.0
-[1.3.0]: https://github.com/your-user/vital-pulse/compare/v1.2.1...v1.3.0
-[1.2.1]: https://github.com/your-user/vital-pulse/compare/v1.2.0...v1.2.1
-[1.2.0]: https://github.com/your-user/vital-pulse/compare/v1.1.2...v1.2.0
-[1.1.2]: https://github.com/your-user/vital-pulse/compare/v1.1.1...v1.1.2
-[1.1.1]: https://github.com/your-user/vital-pulse/compare/v1.1.0...v1.1.1
-[1.1.0]: https://github.com/your-user/vital-pulse/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/your-user/vital-pulse/releases/tag/v1.0.0
+[Unreleased]: https://github.com/digitaladapt/vital-pulse/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/digitaladapt/vital-pulse/compare/v1.5.1...v1.6.0
+[1.5.1]: https://github.com/digitaladapt/vital-pulse/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/digitaladapt/vital-pulse/compare/v1.4.2...v1.5.0
+[1.4.2]: https://github.com/digitaladapt/vital-pulse/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/digitaladapt/vital-pulse/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/digitaladapt/vital-pulse/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/digitaladapt/vital-pulse/compare/v1.2.1...v1.3.0
+[1.2.1]: https://github.com/digitaladapt/vital-pulse/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/digitaladapt/vital-pulse/compare/v1.1.2...v1.2.0
+[1.1.2]: https://github.com/digitaladapt/vital-pulse/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/digitaladapt/vital-pulse/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/digitaladapt/vital-pulse/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/digitaladapt/vital-pulse/releases/tag/v1.0.0

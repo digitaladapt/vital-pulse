@@ -1,5 +1,12 @@
 # VitalPulse — Design Considerations
 
+> **Note (v1.6.0):** This document was an architectural review conducted
+> during development. Many of the findings below have since been resolved —
+> including validation groups, security headers, strict types, error
+> responses, Docker healthcheck, non-root container, Doctrine migrations,
+> and more. See the CHANGELOG for details. This document is retained as a
+> historical record of the review process.
+
 VitalPulse is a lightweight personal health vitals tracker built with Symfony 8, Doctrine ORM, SQLite, and a vanilla HTML/Chart.js frontend. The codebase is clean, well-organized, and clearly the work of someone who cares about structure — the test suite is solid for the project's scope, the Docker setup is reasonable, and the documentation is thorough. The findings below focus on areas where modern best practices could be adopted without over-engineering what is, at its core, a single-user personal health app.
 
 ---

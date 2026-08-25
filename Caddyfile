@@ -3,6 +3,6 @@
 # The host-level Caddy just terminates TLS and forwards.
 #_______________________________________________________________________________
 
-vitals.devgnome.com {
+vitals.example.com {
 	reverse_proxy vital-pulse
 }

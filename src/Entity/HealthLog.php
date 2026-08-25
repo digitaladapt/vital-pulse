@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Entity;
 
 use App\Repository\HealthLogRepository;
@@ -19,23 +21,27 @@ class HealthLog
     private \DateTimeImmutable $timestamp;
 
     #[ORM\Column(type: 'integer', nullable: true)]
+    #[Assert\Type(type: 'integer', message: 'Systolic must be a number.')]
     #[Assert\PositiveOrZero(message: 'Systolic value must be positive.')]
-    #[Assert\Range(min: 60, max: 250, notInRangeMessage: 'Systolic should be between 60 and 250.', groups: ['health_check'])]
+    #[Assert\Range(min: 20, max: 400, notInRangeMessage: 'Systolic should be between {{ min }} and {{ max }}.', groups: ['health_check'])]
     private ?int $systolic = null;
 
     #[ORM\Column(type: 'integer', nullable: true)]
+    #[Assert\Type(type: 'integer', message: 'Diastolic must be a number.')]
     #[Assert\PositiveOrZero(message: 'Diastolic value must be positive.')]
-    #[Assert\Range(min: 40, max: 150, notInRangeMessage: 'Diastolic should be between 40 and 150.', groups: ['health_check'])]
+    #[Assert\Range(min: 10, max: 300, notInRangeMessage: 'Diastolic should be between {{ min }} and {{ max }}.', groups: ['health_check'])]
     private ?int $diastolic = null;
 
     #[ORM\Column(type: 'integer', nullable: true)]
+    #[Assert\Type(type: 'integer', message: 'Heart rate must be a number.')]
     #[Assert\PositiveOrZero(message: 'Heart rate must be positive.')]
-    #[Assert\Range(min: 30, max: 250, notInRangeMessage: 'Heart rate should be between 30 and 250.', groups: ['health_check'])]
+    #[Assert\Range(min: 20, max: 350, notInRangeMessage: 'Heart rate should be between {{ min }} and {{ max }}.', groups: ['health_check'])]
     private ?int $heartRate = null;
 
     #[ORM\Column(type: 'float', nullable: true)]
+    #[Assert\Type(type: 'float', message: 'Weight must be a number.')]
     #[Assert\Positive(message: 'Weight must be positive.')]
-    #[Assert\Range(min: 30, max: 400, notInRangeMessage: 'Weight should be between 30 and 400.', groups: ['health_check'])]
+    #[Assert\Range(min: 5, max: 1000, notInRangeMessage: 'Weight should be between {{ min }} and {{ max }}.', groups: ['health_check'])]
     private ?float $weight = null;
 
     #[ORM\Column(type: 'string', length: 10)]

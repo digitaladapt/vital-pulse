@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Repository;
 
 use App\Entity\HealthLog;
@@ -19,11 +21,24 @@ class HealthLogRepository extends ServiceEntityRepository
     /**
      * Fetch logs within a date range, optionally filtered by emoji.
      * Results are ordered by timestamp descending (newest first).
+     *
+     * @param int|null $limit  Max results to return (null = no limit)
+     * @param int      $offset Number of results to skip
      */
-    public function findByDateRange(?\DateTimeInterface $from = null, ?\DateTimeInterface $to = null, array $emojis = []): array
-    {
+    public function findByDateRange(
+        ?\DateTimeInterface $from = null,
+        ?\DateTimeInterface $to = null,
+        array $emojis = [],
+        ?int $limit = null,
+        int $offset = 0,
+    ): array {
         $qb = $this->createQueryBuilder('l')
-            ->orderBy('l.timestamp', 'DESC');
+            ->orderBy('l.timestamp', 'DESC')
+            ->setFirstResult($offset);
+
+        if ($limit !== null) {
+            $qb->setMaxResults($limit);
+        }
 
         if ($from instanceof \DateTimeInterface) {
             $qb->andWhere('l.timestamp >= :from')
@@ -41,6 +56,35 @@ class HealthLogRepository extends ServiceEntityRepository
         }
 
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Count logs within a date range, optionally filtered by emoji.
+     */
+    public function countByDateRange(
+        ?\DateTimeInterface $from = null,
+        ?\DateTimeInterface $to = null,
+        array $emojis = [],
+    ): int {
+        $qb = $this->createQueryBuilder('l')
+            ->select('COUNT(l.id)');
+
+        if ($from instanceof \DateTimeInterface) {
+            $qb->andWhere('l.timestamp >= :from')
+               ->setParameter('from', $from);
+        }
+
+        if ($to instanceof \DateTimeInterface) {
+            $qb->andWhere('l.timestamp <= :to')
+               ->setParameter('to', $to);
+        }
+
+        if ($emojis !== []) {
+            $qb->andWhere('l.emoji IN (:emojis)')
+               ->setParameter('emojis', $emojis);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     /**

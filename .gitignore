@@ -6,7 +6,10 @@
 /.env.*.local
 /config/secrets/prod/prod.decrypt.private.php
 /public/bundles/
-/var/
+/var/*
+!/var/data/
+!/var/data/.gitkeep
+/var/data/*.db
 /vendor/
 /config/reference.php
 /composer.phar
@@ -20,6 +23,10 @@
 
 # host.env holds the real API key / secrets for the server — never commit it
 host.env
+
+# Dev environment files with secrets should not be tracked
+.env.dev
+.env.*.dev
 
 ###> friendsofphp/php-cs-fixer ###
 /.php-cs-fixer.php

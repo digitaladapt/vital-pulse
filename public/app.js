@@ -7,32 +7,213 @@ let selectedEmoji = '😐';
 let filterEmojis = new Set(); // emoji(s) currently selected for filtering
 let bpChart, hrChart, wtChart;
 
-const commonOptions = {
-    responsive: true,
-    maintainAspectRatio: true,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
-        tooltip: { callbacks: { afterBody(items) {
-            return items[0].raw.emoji;
+function getCommonOptions() {
+    return {
+        responsive: true,
+        maintainAspectRatio: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+            tooltip: { callbacks: { afterBody(items) {
+                return items[0].raw.emoji;
     } } } },
-    scales: { x: {
-        type: 'time',
-        adapters: { date: { zone: 'utc' } },
-        time: { tooltipFormat: 'MMM d, h:mm a',
-            displayFormats: { day: 'MMM d', week: 'MMM d', month: 'MMM yyyy' } },
-        ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } }
-    } }
-};
+        scales: { x: {
+            type: 'time',
+            adapters: { date: { zone: 'utc' } },
+            time: { tooltipFormat: 'MMM d, h:mm a',
+                displayFormats: { day: 'MMM d', week: 'MMM d', month: 'MMM yyyy' } },
+            ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } }
+    } } };
+}
 
 // ── Initialization ────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     initMoodSelector();
     initFilterEmoji();
     setDefaultDates();
+    document.querySelector('.preset-btn[data-preset="30"]').classList.add('active');
     setDefaultReadingDateTime();
+    initAutoAdvance();
     requestApiKeyIfMissing().then(() => renderCharts());
 });
+
+// ── Auto-Advance ──────────────────────────────────────────
+// Field order: sys → dia → hr-input → wt-input → mood → submit
+const AUTO_ADVANCE_FIELDS = ['sys', 'dia', 'hr-input', 'wt-input'];
+
+// ── Soft Validation Warnings ───────────────────────────────
+// "Warn, don't block" — gentle frontend nudges for abnormal values.
+// These are purely informational; the server still accepts any value.
+const VALIDATION_THRESHOLDS = {
+    sys: [
+        { low: 80,   high: 120, msg: 'Systolic looks normal 👍' },
+        { low: 120,  high: 140, msg: 'Slightly elevated — keep an eye on it.' },
+        { low: 140,  high: 160, msg: "BP is in the high range. Is that correct?" },
+        { low: 160,  high: Infinity, msg: 'Quite high BP — double-check?' }
+    ],
+    dia: [
+        { low: 60,   high: 80,  msg: 'Diastolic looks normal 👍' },
+        { low: 80,   high: 90,  msg: 'Slightly elevated — keep an eye on it.' },
+        { low: 90,   high: 100, msg: "BP is in the high range. Is that correct?" },
+        { low: 100,  high: Infinity, msg: 'Quite high BP — double-check?' }
+    ],
+    hr: [
+        { low: 50,   high: 100, msg: 'Resting heart rate looks normal 👍' },
+        { low: 40,   high: 50,  msg: 'Low resting HR — are you an athlete?' },
+        { low: 100,  high: 120, msg: 'Elevated resting heart rate.' },
+        { low: 120,  high: Infinity, msg: 'High resting heart rate — felt okay?' }
+    ],
+    wt: [
+        { low: 70,   high: 350, msg: null }, // no general warning
+        { low: 350,  high: Infinity, msg: 'That is quite a heavy weight — sure?' }
+    ]
+};
+
+
+function checkValidation(fieldId) {
+    const input = document.getElementById(fieldId);
+    if (!input || !input.value) return null;
+    
+    const val = parseFloat(input.value);
+    if (isNaN(val)) return null;
+    
+    // Only warn for values in a plausible but abnormal range
+    if (val <= 0) return null; // negative numbers get no special warning
+    
+    const thresholds = VALIDATION_THRESHOLDS[fieldId];
+    if (!thresholds) return null;
+    
+    for (const t of thresholds) {
+        if (val >= t.low && val < t.high) {
+            return { field: fieldId, message: t.msg };
+        }
+    }
+    return null;
+}
+
+function showWarning(message) {
+    const banner = document.getElementById('reading-warning');
+    if (!banner) return;
+    
+    // Find or create the warning text container
+    let textEl = banner.querySelector('.warning-text');
+    if (textEl) {
+        textEl.textContent = message;
+    } else {
+        const span = document.createElement('span');
+        span.className = 'warning-text';
+        span.textContent = message;
+        banner.prepend(span);
+    }
+    
+    banner.classList.remove('hidden');
+}
+
+function hideWarning() {
+    const banner = document.getElementById('reading-warning');
+    if (!banner) return;
+    
+    const textEl = banner.querySelector('.warning-text');
+    if (textEl) textEl.textContent = '';
+    banner.classList.add('hidden');
+}
+
+function dismissWarning() {
+    hideWarning();
+}
+
+// ── Soft Validation on Input (per-field, real-time) ─────────
+const VALIDATION_FIELDS = ['sys', 'dia', 'hr-input'];
+
+VALIDATION_FIELDS.forEach(fieldId => {
+    const input = document.getElementById(fieldId);
+    if (!input) return;
+
+    // Show warning when user types into this field
+    input.addEventListener('input', () => {
+        const result = checkValidation(fieldId);
+        if (result?.message) {
+            showWarning(`⚠️ ${result.message}`);
+        }
+    });
+
+    // Hide the per-field warning when user clears the input
+    input.addEventListener('blur', () => {
+        if (!input.value) hideWarning();
+    });
+});
+
+// ── Auto-Advance ──────────────────────────────────────────
+
+function initAutoAdvance() {
+    AUTO_ADVANCE_FIELDS.forEach((fieldId, index) => {
+        const input = document.getElementById(fieldId);
+        if (!input) return;
+
+        input.addEventListener('input', () => handleAutoAdvance(input, index));
+        input.addEventListener('keydown', (e) => handleAdvanceKey(e, index));
+    });
+}
+
+function handleAutoAdvance(input, index) {
+    // Weight (last in the chain) has no auto-advance — range too wide
+    if (index >= AUTO_ADVANCE_FIELDS.length - 1) return;
+
+    const value = input.value;
+    if (value.length === 0) return;
+
+    const firstDigit = parseInt(value[0]);
+
+    // If first digit is 0-2, it's likely a 3-digit number → advance after 3rd digit
+    // If first digit is 3-9, it's likely a 2-digit number → advance after 2nd digit
+    const expectedLength = (firstDigit >= 0 && firstDigit <= 2) ? 3 : 2;
+
+    if (value.length >= expectedLength) {
+        focusNextField(index);
+    }
+}
+
+function handleAdvanceKey(e, index) {
+    // Enter always advances to next field (or submits on last field)
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        focusNextField(index);
+        return;
+    }
+
+    // Backspace on empty field moves focus back
+    if (e.key === 'Backspace' && e.target.value.length === 0 && index > 0) {
+        e.preventDefault();
+        focusField(index - 1);
+    }
+}
+
+function focusNextField(index) {
+    // After the last numeric field, move to mood selector / submit
+    if (index >= AUTO_ADVANCE_FIELDS.length - 1) {
+        // Focus the first emoji option or the submit button
+        const firstEmoji = document.querySelector('.emoji-option');
+        if (firstEmoji) {
+            firstEmoji.focus();
+        } else {
+            document.querySelector('.btn-primary')?.focus();
+        }
+        return;
+    }
+    focusField(index + 1);
+}
+
+function focusField(index) {
+    const nextInput = document.getElementById(AUTO_ADVANCE_FIELDS[index]);
+    if (nextInput) {
+        nextInput.focus();
+        // Highlight animation
+        nextInput.classList.remove('auto-advance-highlight');
+        // Force reflow to restart animation
+        void nextInput.offsetWidth;
+        nextInput.classList.add('auto-advance-highlight');
+    }
+}
 
 function initMoodSelector() {
     const container = document.getElementById('mood-selector');
@@ -52,7 +233,6 @@ function initMoodSelector() {
 
 function initFilterEmoji() {
     const container = document.getElementById('filter-emoji');
-    const sel = document.getElementById('filter-emoji');
     EMOJIS.forEach(e => {
         const span = document.createElement('span');
         span.className = 'emoji-filter-option selected';
@@ -81,6 +261,33 @@ function setDefaultDates() {
     document.getElementById('filter-from').valueAsDate = thirtyDaysAgo;
 }
 
+function applyDatePreset(preset) {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const fromEl = document.getElementById('filter-from');
+    const toEl = document.getElementById('filter-to');
+
+    if (preset === 'all') {
+        fromEl.value = '';
+        toEl.valueAsDate = tomorrow;
+    } else {
+        const days = parseInt(preset, 10);
+        const fromDate = new Date(today);
+        fromDate.setDate(today.getDate() - days);
+        fromEl.valueAsDate = fromDate;
+        toEl.valueAsDate = tomorrow;
+    }
+
+    // Highlight the active preset button
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.preset === String(preset));
+    });
+
+    renderCharts();
+}
+
 function setDefaultReadingDateTime() {
     const now = new Date();
     // Adjust to local time for datetime-local input (YYYY-MM-DDTHH:MM format)
@@ -102,17 +309,55 @@ async function requestApiKeyIfMissing() {
 }
 
 // ── Data Fetching ─────────────────────────────────────────
-async function fetchLogs() {
+async function fetchLogs(retryCount = 0) {
     const from = document.getElementById('filter-from').value || null;
     const to = document.getElementById('filter-to').value || null;
-    const emojiFilter = document.getElementById('filter-emoji').value || null;
 
     let url = '/api/v1/logs?';
     if (from) url += `from=${encodeURIComponent(from)}&`;
     if (to) url += `to=${encodeURIComponent(to)}&`;
-    if (emojiFilter) url += `emoji=${encodeURIComponent(emojiFilter)}&`;
 
     // If some emojis selected but not all, send them as emoji[]=x&emoji[]=y
+    const filterArray = Array.from(filterEmojis);
+    if (filterArray.length > 0 && filterArray.length < EMOJIS.length) {
+        for (const e of filterArray) {
+            url += `emoji[]=${encodeURIComponent(e)}&`;
+        }
+    }
+
+    try {
+        const resp = await fetch(url, {
+            headers: { 'X-API-Key': apiKey }
+        });
+        if (!resp.ok) {
+            if (resp.status === 401 && retryCount < 1) {
+                localStorage.removeItem(API_KEY_STORAGE);
+                apiKey = prompt('API key invalid. Enter correct API key:');
+                if (!apiKey) return null;
+                localStorage.setItem(API_KEY_STORAGE, apiKey);
+                return fetchLogs(retryCount + 1); // retry once
+            }
+            throw new Error(`Server error ${resp.status}`);
+        }
+        const json = await resp.json();
+        // Handle paginated response: extract data array
+        return Array.isArray(json) ? json : (json.data || []);
+    } catch (err) {
+        console.error('Fetch failed:', err);
+        alert('Could not load data from server: ' + err.message);
+        return null;
+    }
+}
+
+// ── CSV Export ────────────────────────────────────────────
+async function exportCsv() {
+    const from = document.getElementById('filter-from').value || null;
+    const to = document.getElementById('filter-to').value || null;
+
+    let url = '/api/v1/logs/export?';
+    if (from) url += `from=${encodeURIComponent(from)}&`;
+    if (to) url += `to=${encodeURIComponent(to)}&`;
+
     const filterArray = Array.from(filterEmojis);
     if (filterArray.length > 0 && filterArray.length < EMOJIS.length) {
         for (const e of filterArray) {
@@ -128,17 +373,25 @@ async function fetchLogs() {
             if (resp.status === 401) {
                 localStorage.removeItem(API_KEY_STORAGE);
                 apiKey = prompt('API key invalid. Enter correct API key:');
-                if (!apiKey) return null;
-                localStorage.setItem(API_KEY_STORAGE, apiKey);
-                return fetchLogs(); // retry
+                if (apiKey) {
+                    localStorage.setItem(API_KEY_STORAGE, apiKey);
+                    return exportCsv();
+                }
             }
             throw new Error(`Server error ${resp.status}`);
         }
-        return await resp.json();
+        const blob = await resp.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = 'vitalpulse_export.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
     } catch (err) {
-        console.error('Fetch failed:', err);
-        alert('Could not load data from server: ' + err.message);
-        return null;
+        console.error('CSV export failed:', err);
+        alert('Could not export CSV: ' + err.message);
     }
 }
 
@@ -150,34 +403,198 @@ async function renderCharts() {
     // Sort ascending by timestamp for charts (oldest → newest)
     logs.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-    updateStats(logs);
-    renderBpChart(logs);
-    renderHrChart(logs);
-    renderWtChart(logs);
+    updateLatestReading(logs);
+    updateStatsFromApi();
+
+    try {
+        renderBpChart(logs);
+        renderHrChart(logs);
+        renderWtChart(logs);
+    } catch (err) {
+        console.error('Chart rendering failed:', err);
+        const grid = document.querySelector('.grid');
+        if (grid) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:#991b1b;">Could not render charts. Please check the console for details.</div>';
+        }
+    }
+
+function buildStatsUrl(from, to) {
+    let url = '/api/v1/logs/stats?';
+    if (from) url += `from=${encodeURIComponent(from)}&`;
+    if (to) url += `to=${encodeURIComponent(to)}&`;
+    return url;
 }
 
-function updateStats(logs) {
-    const n = logs.length;
-    document.getElementById('total-count').textContent = n;
+async function fetchStats(from, to) {
+    const url = buildStatsUrl(from, to);
+    try {
+        const resp = await fetch(url, {
+            headers: { 'X-API-Key': apiKey }
+        });
+        if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+        return await resp.json();
+    } catch (err) {
+        console.error('Stats fetch failed:', err);
+        return null;
+    }
+}
 
-    if (n === 0) {
-        document.getElementById('avg-sys').textContent = '-';
-        document.getElementById('avg-dia').textContent = '-';
-        document.getElementById('avg-hr').textContent = '-';
-        document.getElementById('avg-wt').textContent = '-';
+/**
+ * Compute the previous period of equal length for trend comparison.
+ * If from=2025-06-01, to=2025-06-30 (30 days), previous = 2025-05-01 to 2025-05-31.
+ */
+function computePreviousPeriod(fromStr, toStr) {
+    if (!fromStr || !toStr) return null;
+    const from = new Date(fromStr);
+    const to = new Date(toStr);
+    if (isNaN(from) || isNaN(to)) return null;
+
+    const spanMs = to.getTime() - from.getTime();
+    const prevTo = new Date(from.getTime() - 86400000); // day before current "from"
+    const prevFrom = new Date(prevTo.getTime() - spanMs);
+
+    return {
+        from: prevFrom.toISOString().slice(0, 10),
+        to: prevTo.toISOString().slice(0, 10)
+    };
+}
+
+function formatStat(value, isFloat) {
+    if (value === null || value === undefined) return '-';
+    return isFloat ? Number(value).toFixed(1) : String(value);
+}
+
+function formatRange(min, max, isFloat) {
+    if (min === null && max === null) return '';
+    return `Range: ${formatStat(min, isFloat)} – ${formatStat(max, isFloat)}`;
+}
+
+function formatTrend(current, previous, isWeight) {
+    if (current === null || previous === null) return null;
+    const delta = Number(current) - Number(previous);
+    if (Math.abs(delta) < 0.05) return { text: '→ No change', cls: 'flat' };
+
+    const arrow = delta > 0 ? '↑' : '↓';
+    const absDelta = Math.abs(delta).toFixed(isWeight ? 1 : 0);
+    const cls = delta > 0 ? 'up' : 'down';
+
+    if (isWeight) {
+        return { text: `${arrow} ${absDelta} lbs vs prev period`, cls };
+    }
+    return { text: `${arrow} ${absDelta} vs prev period`, cls };
+}
+
+const METRIC_MAP = {
+    sys: { api: 'systolic', isFloat: false, isWeight: false },
+    dia: { api: 'diastolic', isFloat: false, isWeight: false },
+    hr:  { api: 'heart_rate', isFloat: false, isWeight: false },
+    wt:  { api: 'weight', isFloat: true, isWeight: true },
+};
+
+async function updateStatsFromApi() {
+    const from = document.getElementById('filter-from').value || null;
+    const to = document.getElementById('filter-to').value || null;
+
+    // Reset all fields
+    Object.keys(METRIC_MAP).forEach(k => {
+        document.getElementById('avg-' + k).textContent = '-';
+        document.getElementById('range-' + k).textContent = '';
+        document.getElementById('trend-' + k).textContent = '';
+        document.getElementById('trend-' + k).className = 'stat-trend';
+    });
+    document.getElementById('total-count').textContent = '-';
+
+    // Fetch current period stats
+    const stats = await fetchStats(from, to);
+    if (!stats) return;
+
+    document.getElementById('total-count').textContent = stats.count ?? '-';
+
+    Object.entries(METRIC_MAP).forEach(([k, cfg]) => {
+        const d = stats[cfg.api] || {};
+        document.getElementById('avg-' + k).textContent = formatStat(d.avg, cfg.isFloat);
+        document.getElementById('range-' + k).textContent = formatRange(d.min, d.max, cfg.isFloat);
+    });
+
+    // Fetch previous period for trend comparison
+    const prevPeriod = computePreviousPeriod(from, to);
+    if (!prevPeriod) return;
+
+    const prevStats = await fetchStats(prevPeriod.from, prevPeriod.to);
+    if (!prevStats) return;
+
+    Object.entries(METRIC_MAP).forEach(([k, cfg]) => {
+        const cur = stats[cfg.api]?.avg ?? null;
+        const prev = prevStats[cfg.api]?.avg ?? null;
+        const trend = formatTrend(cur, prev, cfg.isWeight);
+        if (trend) {
+            const el = document.getElementById('trend-' + k);
+            el.textContent = trend.text;
+            el.className = 'stat-trend ' + trend.cls;
+        }
+    });
+}
+
+function updateLatestReading(logs) {
+    const container = document.getElementById('latest-reading');
+    if (!container) return;
+
+    if (logs.length === 0) {
+        container.innerHTML = '<span class="lr-empty">No readings yet. Submit your first log above!</span>';
         return;
     }
 
-    function avg(arr) {
-        const vals = arr.filter(v => v !== null && v !== undefined);
-        if (vals.length === 0) return '-';
-        return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+    // logs are sorted ascending (oldest → newest), so last is latest
+    const latest = logs[logs.length - 1];
+    const previous = logs.length >= 2 ? logs[logs.length - 2] : null;
+
+    const parts = [];
+    parts.push(`<span class="lr-emoji">${latest.emoji || '😐'}</span>`);
+
+    const metrics = [];
+    if (latest.systolic != null && latest.diastolic != null) {
+        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.systolic}/${latest.diastolic}</span>${formatReadingTrend(previous, latest, 'systolic', false)}<br>Blood Pressure</div>`);
+    }
+    if (latest.heart_rate != null) {
+        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.heart_rate}</span>${formatReadingTrend(previous, latest, 'heart_rate', false)}<br>Heart Rate (bpm)</div>`);
+    }
+    if (latest.weight != null) {
+        metrics.push(`<div class="lr-metric"><span class="lr-value">${latest.weight}</span>${formatReadingTrend(previous, latest, 'weight', true)}<br>Weight (lbs)</div>`);
     }
 
-    document.getElementById('avg-sys').textContent = avg(logs.map(l => l.systolic));
-    document.getElementById('avg-dia').textContent = avg(logs.map(l => l.diastolic));
-    document.getElementById('avg-hr').textContent = avg(logs.map(l => l.heart_rate));
-    document.getElementById('avg-wt').textContent = avg(logs.map(l => l.weight));
+    if (metrics.length === 0) {
+        metrics.push('<div class="lr-metric"><span class="lr-value">—</span><br>No measurements</div>');
+    }
+
+    parts.push(`<div class="lr-metrics">${metrics.join('')}</div>`);
+
+    // Format timestamp for display
+    let timeStr = 'Unknown time';
+    if (latest.timestamp) {
+        try {
+            const d = new Date(latest.timestamp);
+            timeStr = d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        } catch {
+            timeStr = latest.timestamp;
+        }
+    }
+    parts.push(`<span class="lr-time">${timeStr}</span>`);
+
+    container.innerHTML = parts.join('');
+}
+
+/**
+ * Compare a metric between the previous and latest reading.
+ * Returns an HTML span with ↑/↓ arrow and delta, or empty string if not comparable.
+ */
+function formatReadingTrend(previous, latest, field, isFloat) {
+    if (!previous || previous[field] == null || latest[field] == null) return '';
+    const delta = Number(latest[field]) - Number(previous[field]);
+    if (Math.abs(delta) < (isFloat ? 0.05 : 0.5)) return ' <span class="lr-trend flat">→</span>';
+    const arrow = delta > 0 ? '↑' : '↓';
+    const absDelta = Math.abs(delta).toFixed(isFloat ? 1 : 0);
+    const cls = delta > 0 ? 'up' : 'down';
+    return ` <span class="lr-trend ${cls}">${arrow} ${absDelta}</span>`;
 }
 
 function makeDataset(logs, field) {
@@ -200,7 +617,7 @@ function renderBpChart(logs) {
             { label: 'Systolic',  data: makeDataset(logs, 'systolic' ), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', tension: 0.4 },
             { label: 'Diastolic', data: makeDataset(logs, 'diastolic'), borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', tension: 0.4 }
         ] },
-        options: commonOptions
+        options: getCommonOptions()
     });
 }
 
@@ -213,7 +630,7 @@ function renderHrChart(logs) {
         data: { datasets: [
             { label: 'Heart Rate', data: makeDataset(logs, 'heart_rate'), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4 }
         ] },
-        options: commonOptions
+        options: getCommonOptions()
     });
 }
 
@@ -226,7 +643,7 @@ function renderWtChart(logs) {
         data: { datasets: [
             { label: 'Weight', data: makeDataset(logs, 'weight'), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.1)', tension: 0.4 }
         ] },
-        options: commonOptions
+        options: getCommonOptions()
     });
 }
 

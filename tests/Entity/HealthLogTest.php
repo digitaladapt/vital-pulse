@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Entity;
 
 use App\Entity\HealthLog;
@@ -37,7 +39,7 @@ class HealthLogTest extends TestCase
         self::assertEquals(120, $log->getSystolic());
         self::assertEquals(80, $log->getDiastolic());
         self::assertEquals(72, $log->getHeartRate());
-        self::assertEquals(185.4, $log->getWeight(), 0.01);
+        self::assertEqualsWithDelta(185.4, $log->getWeight(), 0.01);
     }
 
     public function testHasMeasurementsReturnsTrueWhenAnyValueSet(): void

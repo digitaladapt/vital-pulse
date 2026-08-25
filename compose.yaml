@@ -1,10 +1,3 @@
-# The 'public' network must be created before first run:
-#   docker network create public
-# This shared network allows the reverse proxy to reach this service.
-networks:
-  public:
-    external: true
-
 services:
   vital-pulse:
     build:
@@ -21,7 +14,5 @@ services:
       API_KEY: ${API_KEY:-change-me}
       DEFAULT_URI: ${DEFAULT_URI:-https://vitals.devgnome.com}
     restart: unless-stopped
-    networks:
-      - public
     volumes:
       - ./var/data:/app/var/data

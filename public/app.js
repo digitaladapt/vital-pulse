@@ -417,6 +417,7 @@ async function renderCharts() {
             grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:#991b1b;">Could not render charts. Please check the console for details.</div>';
         }
     }
+}
 
 function buildStatsUrl(from, to) {
     let url = '/api/v1/logs/stats?';

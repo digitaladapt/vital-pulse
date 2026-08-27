@@ -146,6 +146,56 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(new \DateTimeImmutable('2025-03-15T08:30:00Z'), $ts);
     }
 
+    public function testPostLogWithNaiveTimestampParsedInServerTimezoneSucceeds(): void
+    {
+        // A naive timestamp (no offset) from the frontend's datetime-local input
+        // must be interpreted in the server's default timezone — NOT UTC — so
+        // readings in timezones ahead of UTC aren't wrongly rejected as future.
+        $client = $this->client;
+        $payload = [
+            'heart_rate' => 66,
+            'timestamp' => date('Y-m-d\TH:i', strtotime('-1 hour')),
+        ];
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode($client->getResponse()->getContent(), true);
+
+        // The stored timestamp should fall within a reasonable window around now.
+        $stored = new \DateTimeImmutable($data['timestamp']);
+        $now = new \DateTimeImmutable('now');
+        $diff = abs($now->getTimestamp() - $stored->getTimestamp());
+        self::assertLessThan(3600 * 2, $diff, 'Naive timestamp should be treated as local time, not UTC');
+    }
+
+    public function testPostLogWithNaiveTimestampNotRejectedAsFutureInOffsetTimezone(): void
+    {
+        // Regression: with PHP's default timezone set to a positive offset
+        // (+05:30), a naive local "now" must not be treated as UTC (which would
+        // be several hours in the future and rejected).
+        $previousTz = date_default_timezone_get();
+        try {
+            date_default_timezone_set('Asia/Kolkata'); // UTC+05:30
+
+            $client = $this->client;
+            $payload = [
+                'heart_rate' => 67,
+                'timestamp' => date('Y-m-d\TH:i'),
+            ];
+            $client->request('POST', '/api/v1/logs', [], [], [
+                'HTTP_X-API-KEY' => self::API_KEY,
+                'HTTP_CONTENT_TYPE' => 'application/json',
+            ], json_encode($payload));
+
+            self::assertResponseStatusCodeSame(201);
+        } finally {
+            date_default_timezone_set($previousTz);
+        }
+    }
+
     public function testGetLogsReturnsEmptyArrayWhenNoData(): void
     {
         $client = $this->client;

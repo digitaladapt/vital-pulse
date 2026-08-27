@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Entity\HealthLog;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,6 +25,7 @@ class HealthApiController
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ValidatorInterface $validator,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -53,13 +55,23 @@ class HealthApiController
         // Timestamp defaults to now if not provided
         if (isset($data['timestamp'])) {
             try {
-                $timestamp = new \DateTimeImmutable($data['timestamp'], new \DateTimeZone('UTC'));
+                // The frontend's datetime-local input sends a NAIVE timestamp with
+                // no timezone (e.g. '2026-08-27T16:30'). Interpreting that as UTC
+                // shifts readings by the server's offset and can wrongly reject
+                // valid timestamps as "in the future" whenever local time is ahead
+                // of UTC. Parse naive timestamps in the server's default timezone
+                // instead; fully-qualified timestamps (with offset/Z) are
+                // recognized as-is.
+                $value = trim((string) $data['timestamp']);
+                $hasTimeZone = (bool) preg_match('/(?:Z|[+-]\d{2}:?\d{2})$/i', $value);
+                $timezone = $hasTimeZone ? new \DateTimeZone('UTC') : new \DateTimeZone(date_default_timezone_get());
+                $timestamp = new \DateTimeImmutable($value, $timezone);
             } catch (\Exception) {
                 return new JsonResponse(['error' => 'Invalid timestamp format. Use ISO 8601 or a recognized date string.'], 400);
             }
 
             // Reject future timestamps (with 5-minute tolerance for clock skew)
-            $now = new \DateTimeImmutable('UTC');
+            $now = new \DateTimeImmutable(date_default_timezone_get());
             if ($timestamp > $now->modify('+5 minutes')) {
                 return new JsonResponse(['error' => 'Timestamp cannot be in the future.'], 400);
             }
@@ -138,8 +150,15 @@ class HealthApiController
         try {
             $this->entityManager->persist($log);
             $this->entityManager->flush();
-        } catch (\Exception) {
-            return new JsonResponse(['error' => 'Failed to save log entry'], 500);
+        } catch (\Throwable $e) {
+            // Log the real cause for operators (it is never exposed to the client).
+            $this->logger->error('Failed to save health log entry', [
+                'exception' => $e,
+            ]);
+
+            return new JsonResponse([
+                'error' => 'Failed to save log entry. The database file (var/data/health_tracker.db) may not be writable — check its permissions and that the volume is writable by the container user.',
+            ], 500);
         }
 
         return new JsonResponse($this->serializeLog($log), 201);
@@ -391,8 +410,9 @@ class HealthApiController
 
         try {
             $this->entityManager->flush();
-        } catch (\Exception) {
-            return new JsonResponse(['error' => 'Failed to update log entry'], 500);
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to update health log entry', ['exception' => $e]);
+            return new JsonResponse(['error' => 'Failed to update log entry. The database file may not be writable.'], 500);
         }
 
         return new JsonResponse($this->serializeLog($log));
@@ -410,8 +430,9 @@ class HealthApiController
         try {
             $this->entityManager->remove($log);
             $this->entityManager->flush();
-        } catch (\Exception) {
-            return new JsonResponse(['error' => 'Failed to delete log entry'], 500);
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to delete health log entry', ['exception' => $e]);
+            return new JsonResponse(['error' => 'Failed to delete log entry. The database file may not be writable.'], 500);
         }
 
         return new JsonResponse(null, 204);

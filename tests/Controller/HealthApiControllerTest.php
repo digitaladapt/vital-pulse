@@ -146,35 +146,49 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(new \DateTimeImmutable('2025-03-15T08:30:00Z'), $ts);
     }
 
-    public function testPostLogWithNaiveFutureWithinClientOffsetSucceeds(): void
+    public function testPostLogAcceptsFutureWithinServerOffsetWindow(): void
     {
-        // A naive datetime-local timestamp is interpreted as UTC by design. For a
-        // user at a positive UTC offset (e.g. UTC+14), "now" in local time is up
-        // to 14h ahead of UTC; the API must accept it when the client declares
-        // its offset.
-        $client = $this->client;
-        $payload = [
-            'heart_rate' => 66,
-            'timestamp' => date('Y-m-d\TH:i', strtotime('+2 hours')),
-            'client_offset_minutes' => 3 * 60, // UTC+3
-        ];
-        $client->request('POST', '/api/v1/logs', [], [], [
-            'HTTP_X-API-KEY' => self::API_KEY,
-            'HTTP_CONTENT_TYPE' => 'application/json',
-        ], json_encode($payload));
+        // The server widens the "not in the future" check by its own positive
+        // UTC offset. With the server configured in Asia/Kolkata (UTC+05:30), a
+        // timestamp up to ~5h30m ahead of UTC is accepted (it corresponds to the
+        // server's "now" being interpreted as UTC by design). No client-supplied
+        // timezone/offset is involved.
+        $previousTz = date_default_timezone_get();
+        try {
+            $tz = new \DateTimeZone('Asia/Kolkata'); // UTC+05:30
+            date_default_timezone_set($tz->getName());
 
-        self::assertResponseStatusCodeSame(201);
+            $offsetMinutes = (int) round($tz->getOffset(new \DateTimeImmutable('now', new \DateTimeZone('UTC'))) / 60);
+            // Use a fully-qualified UTC string so the timestamp is unambiguous
+            // and independent of the environment's default timezone handling.
+            $withinWindow = gmdate('Y-m-d\TH:i:s\Z', time() + ($offsetMinutes + 2) * 60);
+
+            $client = $this->client;
+            $payload = [
+                'heart_rate' => 66,
+                'timestamp' => $withinWindow,
+            ];
+            $client->request('POST', '/api/v1/logs', [], [], [
+                'HTTP_X-API-KEY' => self::API_KEY,
+                'HTTP_CONTENT_TYPE' => 'application/json',
+            ], json_encode($payload));
+
+            self::assertResponseStatusCodeSame(201);
+        } finally {
+            date_default_timezone_set($previousTz);
+        }
     }
 
-    public function testPostLogWithNaiveFutureBeyondMaxOffsetIsRejected(): void
+    public function testPostLogRejectsTimestampBeyondServerOffsetFutureWindow(): void
     {
-        // Even with the widest allowed client offset (+14h), a timestamp that is
-        // still ahead of the tolerance window must be rejected.
+        // A timestamp that is genuinely in the future — well past the widened
+        // (server offset + clock-skew) window — must still be rejected. Use a
+        // fully-qualified UTC string for an unambiguous, environment-independent
+        // value.
         $client = $this->client;
         $payload = [
             'heart_rate' => 66,
-            'timestamp' => date('Y-m-d\TH:i', strtotime('+2 days')),
-            'client_offset_minutes' => 14 * 60, // UTC+14 (max)
+            'timestamp' => gmdate('Y-m-d\TH:i:s\Z', time() + 86400), // +1 day
         ];
         $client->request('POST', '/api/v1/logs', [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
@@ -184,24 +198,6 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
         $data = json_decode($client->getResponse()->getContent(), true);
         self::assertStringContainsString('future', strtolower((string) ($data['error'] ?? '')));
-    }
-
-    public function testPostLogRejectsOutOfRangeClientOffset(): void
-    {
-        $client = $this->client;
-        $payload = [
-            'heart_rate' => 66,
-            'timestamp' => date('Y-m-d\TH:i'),
-            'client_offset_minutes' => 9999,
-        ];
-        $client->request('POST', '/api/v1/logs', [], [], [
-            'HTTP_X-API-KEY' => self::API_KEY,
-            'HTTP_CONTENT_TYPE' => 'application/json',
-        ], json_encode($payload));
-
-        self::assertResponseStatusCodeSame(400);
-        $data = json_decode($client->getResponse()->getContent(), true);
-        self::assertStringContainsString('client_offset_minutes', strtolower((string) ($data['error'] ?? '')));
     }
 
     public function testGetLogsReturnsEmptyArrayWhenNoData(): void

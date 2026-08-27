@@ -2,7 +2,7 @@
 const API_KEY_STORAGE = 'vitalpulse_api_key';
 let apiKey = localStorage.getItem(API_KEY_STORAGE);
 
-const EMOJIS = ['🤩', '😀', '🙂', '😐', '☹️', '😩', '🥵', '😵‍💫', '🤢', '🥶'];
+const EMOJIS = ['🤩', '😀', '🙂', '😐', '🙁', '😩', '🥵', '😵‍💫', '🤢', '🥶'];
 let selectedEmoji = '😐';
 let filterEmojis = new Set(); // emoji(s) currently selected for filtering
 let bpChart, hrChart, wtChart;

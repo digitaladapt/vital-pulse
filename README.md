@@ -189,7 +189,7 @@ The `HealthLog` entity stores a single health check-in entry.
 | `diastolic`   | `integer`             | Yes      | `null`  | Range 40–150, positive              |
 | `heart_rate`  | `integer`             | Yes      | `null`  | Range 30–250, positive              |
 | `weight`      | `float`               | Yes      | `null`  | Range 30–400, positive              |
-| `emoji`       | `string` (length 10)  | No       | `😐`    | Any emoji; defaults to 😐. Frontend uses: 🤩 😀 🙂 😐 ☹️ 😩 🥵 😵‍💫 🤢 🥶 |
+| `emoji`       | `string` (length 10)  | No       | `😐`    | Any emoji; defaults to 😐. Frontend uses: 🤩 😀 🙂 😐 🙁 😩 🥵 😵‍💫 🤢 🥶 |
 
 > **Note:** At least one measurement field must be provided. If systolic or diastolic is provided, the other must also be provided.
 

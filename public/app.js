@@ -672,6 +672,10 @@ async function submitLog() {
     // Include timestamp only if user provided one
     if (readingDateTime) {
         body.timestamp = readingDateTime;
+        // Tell the API how far ahead of UTC the browser's local clock is so a
+        // naive datetime-local reading of "now" is accepted (positive offsets
+        // up to +14h are allowed by the server).
+        body.client_offset_minutes = -new Date().getTimezoneOffset();
     }
 
     // Ensure at least one measurement

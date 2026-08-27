@@ -55,24 +55,34 @@ class HealthApiController
         // Timestamp defaults to now if not provided
         if (isset($data['timestamp'])) {
             try {
-                // The frontend's datetime-local input sends a NAIVE timestamp with
-                // no timezone (e.g. '2026-08-27T16:30'). Interpreting that as UTC
-                // shifts readings by the server's offset and can wrongly reject
-                // valid timestamps as "in the future" whenever local time is ahead
-                // of UTC. Parse naive timestamps in the server's default timezone
-                // instead; fully-qualified timestamps (with offset/Z) are
-                // recognized as-is.
+                // The frontend's datetime-local input sends a NAIVE timestamp
+                // with no timezone (e.g. '2026-08-27T16:30'). This is interpreted
+                // as UTC by design (see DESIGN_CONSIDERATIONS.md). Fully-qualified
+                // timestamps (with offset/Z) are parsed as-is.
                 $value = trim((string) $data['timestamp']);
-                $hasTimeZone = (bool) preg_match('/(?:Z|[+-]\d{2}:?\d{2})$/i', $value);
-                $timezone = $hasTimeZone ? new \DateTimeZone('UTC') : new \DateTimeZone(date_default_timezone_get());
-                $timestamp = new \DateTimeImmutable($value, $timezone);
+                $timestamp = new \DateTimeImmutable($value, new \DateTimeZone('UTC'));
             } catch (\Exception) {
                 return new JsonResponse(['error' => 'Invalid timestamp format. Use ISO 8601 or a recognized date string.'], 400);
             }
 
-            // Reject future timestamps (with 5-minute tolerance for clock skew)
-            $now = new \DateTimeImmutable(date_default_timezone_get());
-            if ($timestamp > $now->modify('+5 minutes')) {
+            // Optional client offset so we can validate a naive "now" strictly.
+            // Ranges over the whole real-world UTC offset span (-12h .. +14h).
+            $clientOffsetMinutes = 0;
+            if (!empty($data['client_offset_minutes'])) {
+                $offset = filter_var($data['client_offset_minutes'], FILTER_VALIDATE_INT);
+                if ($offset === false || $offset < -720 || $offset > 840) {
+                    return new JsonResponse(['error' => 'client_offset_minutes must be an integer between -720 and 840.'], 400);
+                }
+                $clientOffsetMinutes = $offset;
+            }
+
+            // A naive timestamp is interpreted as UTC, so a user at a positive
+            // UTC offset (e.g. UTC+9 or UTC+14) logging "now" sends a value up
+            // to X hours in the future. Allow that: 5 minutes of clock-skew
+            // tolerance plus the client's positive UTC offset.
+            $futureToleranceMinutes = 5 + max(0, $clientOffsetMinutes);
+            $now = new \DateTimeImmutable('UTC');
+            if ($timestamp > $now->modify(sprintf('+%d minutes', $futureToleranceMinutes))) {
                 return new JsonResponse(['error' => 'Timestamp cannot be in the future.'], 400);
             }
         } else {
@@ -371,8 +381,21 @@ class HealthApiController
         if (array_key_exists('timestamp', $data)) {
             try {
                 $timestamp = new \DateTimeImmutable($data['timestamp'], new \DateTimeZone('UTC'));
+
+                // Same future-window rule as createLog: 5 minutes of clock-skew
+                // tolerance plus the client's positive UTC offset.
+                $clientOffsetMinutes = 0;
+                if (!empty($data['client_offset_minutes'])) {
+                    $offset = filter_var($data['client_offset_minutes'], FILTER_VALIDATE_INT);
+                    if ($offset === false || $offset < -720 || $offset > 840) {
+                        $coercionErrors['client_offset_minutes'] = ['client_offset_minutes must be an integer between -720 and 840.'];
+                    } else {
+                        $clientOffsetMinutes = (int) $offset;
+                    }
+                }
+
                 $now = new \DateTimeImmutable('UTC');
-                if ($timestamp > $now->modify('+5 minutes')) {
+                if ($timestamp > $now->modify(sprintf('+%d minutes', 5 + max(0, $clientOffsetMinutes)))) {
                     $coercionErrors['timestamp'] = ['Timestamp cannot be in the future.'];
                 } else {
                     $log->setTimestamp($timestamp);

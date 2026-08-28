@@ -18,9 +18,9 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 class HealthApiController
 {
     private const EMOJI_PATTERN = '/^[\x{1F300}-\x{1F9FF}\x{2600}-\x{27BF}\x{1F600}-\x{1F64F}\x{1F680}-\x{1F6FF}\x{1F700}-\x{1F77F}\x{1F900}-\x{1F9FF}\x{2700}-\x{27BF}\x{FE0F}\x{200D}]+$/u';
-    private const MAX_PAGE_SIZE = 50000;
-    private const DEFAULT_PAGE_SIZE = 50000;
-    private const AGGREGATION_THRESHOLD = 1000;
+    private const MAX_PAGE_SIZE = 200;
+    private const DEFAULT_PAGE_SIZE = 200;
+    private const AGGREGATION_THRESHOLD = 200;
 
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -164,45 +164,51 @@ class HealthApiController
             $repo = $this->entityManager->getRepository(HealthLog::class);
             $total = $repo->countByDateRange($dateFrom, $dateTo, $emoji);
 
-            // If the result set is small enough, return raw records (with optional pagination)
-            if ($total <= self::AGGREGATION_THRESHOLD) {
-                $page = max(1, (int) ($request->query->get('page', 1)));
-                $limit = min(self::MAX_PAGE_SIZE, max(1, (int) ($request->query->get('limit', self::DEFAULT_PAGE_SIZE))));
-                $offset = ($page - 1) * $limit;
+        } catch (\Exception) {
+            return new JsonResponse(['error' => 'Invalid date format. Use YYYY-MM-DD or ISO 8601 string.'], 400);
+        }
 
-                $logs = $repo->findByDateRange($dateFrom, $dateTo, $emoji, $limit, $offset);
-                $pages = (int) ceil($total / $limit);
+        // If the result set is small enough, return raw records (with optional pagination)
+        if ($total <= self::AGGREGATION_THRESHOLD) {
+            $page = max(1, (int) ($request->query->get('page', 1)));
+            $limit = min(self::MAX_PAGE_SIZE, max(1, (int) ($request->query->get('limit', self::DEFAULT_PAGE_SIZE))));
+            $offset = ($page - 1) * $limit;
 
-                return new JsonResponse([
-                    'data' => array_map(fn (HealthLog $log) => $this->serializeLog($log), $logs),
-                    'meta' => [
-                        'page' => $page,
-                        'limit' => $limit,
-                        'total' => $total,
-                        'pages' => $pages,
-                        'aggregated' => false,
-                    ],
-                ]);
-            }
-
-            // Large dataset — auto-aggregate to keep the response chart-friendly
-            $interval = $this->pickAggregationInterval($dateFrom, $dateTo, $total);
-            $aggregated = $repo->findAggregatedByDateRange($dateFrom, $dateTo, $emoji, $interval);
+            $logs = $repo->findByDateRange($dateFrom, $dateTo, $emoji, $limit, $offset);
+            $pages = (int) ceil($total / $limit);
 
             return new JsonResponse([
-                'data' => array_map(
-                    fn (array $row) => $this->serializeAggregatedLog($row, $interval),
-                    $aggregated,
-                ),
+                'data' => array_map(fn (HealthLog $log) => $this->serializeLog($log), $logs),
                 'meta' => [
-                    'page' => 1,
-                    'limit' => count($aggregated),
+                    'page' => $page,
+                    'limit' => $limit,
                     'total' => $total,
-                    'pages' => 1,
-                    'aggregated' => true,
-                    'interval' => $interval,
+                    'pages' => $pages,
+                    'aggregated' => false,
                 ],
             ]);
+        }
+
+        // Large dataset — auto-aggregate to keep the response chart-friendly
+        // choosing aggregation level really needs a date range, so try to get our bounds
+        ['min' => $from, 'max' => $to] = $repo->getDateRangeBounds($dateFrom, $dateTo, $emoji);
+        $interval = $this->pickAggregationInterval($from, $to, $total);
+        $aggregated = $repo->findAggregatedByDateRange($dateFrom, $dateTo, $emoji, $interval);
+
+        return new JsonResponse([
+            'data' => array_map(
+                fn (array $row) => $this->serializeAggregatedLog($row, $interval),
+                $aggregated,
+            ),
+            'meta' => [
+                'page' => 1,
+                'limit' => count($aggregated),
+                'total' => $total,
+                'pages' => 1,
+                'aggregated' => true,
+                'interval' => $interval,
+            ],
+        ]);
     }
 
     #[Route('/export', methods: ['GET'])]
@@ -486,30 +492,20 @@ class HealthApiController
     private function pickAggregationInterval(
         ?\DateTimeImmutable $from,
         ?\DateTimeImmutable $to,
-        int $totalRecords,
+        int $count,
     ): string {
-        // If we don't have both dates, fall back to count-based heuristic
-        if ($from === null || $to === null) {
-            if ($totalRecords > 10000) {
-                return 'month';
-            }
-            if ($totalRecords > 3000) {
-                return 'week';
-            }
-
-            return 'day';
+        if ($from !== null && $to !== null) {
+            /* when available, prefer day count */
+            $count = $to->diff($from)->days;
         }
 
-        $spanDays = $to->diff($from)->days;
-
-        if ($spanDays <= 90) {
+        if ($count <= self::AGGREGATION_THRESHOLD) {
             return 'day';
-        }
-        if ($spanDays <= 730) {
+        } else if ($count <= 7 * self::AGGREGATION_THRESHOLD) {
             return 'week';
+        } else {
+            return 'month';
         }
-
-        return 'month';
     }
 
     /**

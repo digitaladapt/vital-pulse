@@ -735,7 +735,7 @@ class HealthApiControllerTest extends WebTestCase
             'grinning' => ['😀'],
             'slight smile' => ['🙂'],
             'neutral' => ['😐'],
-            'frowning with VS' => ['☹️'],
+            'frowning with VS' => ['🙁'],
             'weary' => ['😩'],
             'hot face' => ['🥵'],
             'dizzy ZWJ' => ['😵‍💫'],
@@ -776,9 +776,9 @@ class HealthApiControllerTest extends WebTestCase
 
     public function testPostLogVariationSelectorEmojiAccepted(): void
     {
-        // ☹️ uses a variation selector — must be accepted
+        // 🙁 uses a variation selector — must be accepted
         $client = $this->client;
-        $payload = ['heart_rate' => 72, 'emoji' => '☹️'];
+        $payload = ['heart_rate' => 72, 'emoji' => '🙁'];
         $client->request('POST', '/api/v1/logs', [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
@@ -786,7 +786,7 @@ class HealthApiControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(201);
         $data = json_decode($client->getResponse()->getContent(), true);
-        self::assertEquals('☹️', $data['emoji']);
+        self::assertEquals('🙁', $data['emoji']);
     }
 
     public function testPostLogMixedEmojiAndTextReturns400(): void

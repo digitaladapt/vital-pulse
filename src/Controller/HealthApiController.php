@@ -19,7 +19,8 @@ class HealthApiController
 {
     private const EMOJI_PATTERN = '/^[\x{1F300}-\x{1F9FF}\x{2600}-\x{27BF}\x{1F600}-\x{1F64F}\x{1F680}-\x{1F6FF}\x{1F700}-\x{1F77F}\x{1F900}-\x{1F9FF}\x{2700}-\x{27BF}\x{FE0F}\x{200D}]+$/u';
     private const MAX_PAGE_SIZE = 200;
-    private const DEFAULT_PAGE_SIZE = 50;
+    private const DEFAULT_PAGE_SIZE = 200;
+    private const AGGREGATION_THRESHOLD = 200;
 
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -160,27 +161,48 @@ class HealthApiController
                 return new JsonResponse(['error' => 'Invalid date range: "from" must be before or equal to "to".'], 400);
             }
 
-            // Pagination
-            $page = max(1, (int) ($request->query->get('page', 1)));
-            $limit = min(self::MAX_PAGE_SIZE, max(1, (int) ($request->query->get('limit', self::DEFAULT_PAGE_SIZE))));
-            $offset = ($page - 1) * $limit;
-
             $repo = $this->entityManager->getRepository(HealthLog::class);
-            $logs = $repo->findByDateRange($dateFrom, $dateTo, $emoji, $limit, $offset);
             $total = $repo->countByDateRange($dateFrom, $dateTo, $emoji);
         } catch (\Exception) {
             return new JsonResponse(['error' => 'Invalid date format. Use YYYY-MM-DD or ISO 8601 string.'], 400);
         }
 
-        $pages = (int) ceil($total / $limit);
+        // If the result set is small enough, return raw records (with optional pagination)
+        if ($total <= self::AGGREGATION_THRESHOLD) {
+            $page = max(1, (int) ($request->query->get('page', 1)));
+            $limit = min(self::MAX_PAGE_SIZE, max(1, (int) ($request->query->get('limit', self::DEFAULT_PAGE_SIZE))));
+            $offset = ($page - 1) * $limit;
+
+            $logs = $repo->findByDateRange($dateFrom, $dateTo, $emoji, $limit, $offset);
+            $pages = (int) ceil($total / $limit);
+
+            return new JsonResponse([
+                'data' => array_map(fn (HealthLog $log) => $this->serializeLog($log), $logs),
+                'meta' => [
+                    'page' => $page,
+                    'limit' => $limit,
+                    'total' => $total,
+                    'pages' => $pages,
+                    'aggregated' => false,
+                ],
+            ]);
+        }
+
+        // Large dataset — auto-aggregate to keep the response chart-friendly
+        // choosing aggregation level really needs a date range, so try to get our bounds
+        ['min' => $from, 'max' => $to] = $repo->getDateRangeBounds($dateFrom, $dateTo, $emoji);
+        $interval = $this->pickAggregationInterval($from, $to, $total);
+        $aggregated = $repo->findAggregatedByDateRange($dateFrom, $dateTo, $emoji, $interval);
 
         return new JsonResponse([
-            'data' => array_map(fn (HealthLog $log) => $this->serializeLog($log), $logs),
+            'data' => array_map(fn (array $row) => $this->serializeAggregatedLog($row, $interval), $aggregated),
             'meta' => [
-                'page' => $page,
-                'limit' => $limit,
+                'page' => 1,
+                'limit' => count($aggregated),
                 'total' => $total,
-                'pages' => $pages,
+                'pages' => 1,
+                'aggregated' => true,
+                'interval' => $interval,
             ],
         ]);
     }
@@ -204,7 +226,7 @@ class HealthApiController
         }
 
         $repo = $this->entityManager->getRepository(HealthLog::class);
-        $logs = $repo->findByDateRange($dateFrom, $dateTo, $emoji, self::MAX_PAGE_SIZE, 0);
+        $logs = $repo->findByDateRange($dateFrom, $dateTo, $emoji, null, 0);
 
         // Build CSV content
         $handle = fopen('php://temp', 'r+');
@@ -452,6 +474,104 @@ class HealthApiController
             'min' => $min !== null ? ($isFloat ? round((float) $min, 2) : (int) $min) : null,
             'max' => $max !== null ? ($isFloat ? round((float) $max, 2) : (int) $max) : null,
         ];
+    }
+
+    /**
+     * Choose an aggregation interval (day, week, month) based on the
+     * date range span and expected record count.
+     *
+     * Heuristics:
+     *  - ≤ 90 days  → day   (max ~90 buckets)
+     *  - ≤ 2 years  → week  (max ~104 buckets)
+     *  > 2 years    → month
+     */
+    private function pickAggregationInterval(
+        ?\DateTimeImmutable $from,
+        ?\DateTimeImmutable $to,
+        int $count,
+    ): string {
+        if ($from !== null && $to !== null) {
+            /* when available, prefer day count */
+            $count = $to->diff($from)->days;
+        }
+
+        if ($count <= self::AGGREGATION_THRESHOLD) {
+            return 'day';
+        } else if ($count <= 7 * self::AGGREGATION_THRESHOLD) {
+            return 'week';
+        } else {
+            return 'month';
+        }
+    }
+
+    /**
+     * Serialize an aggregated row into the same shape as a single log,
+     * so the frontend can treat both paths uniformly.
+     *
+     * @param array  $row      Aggregated row from findAggregatedByDateRange()
+     * @param string $interval 'day', 'week', or 'month'
+     */
+    private function serializeAggregatedLog(array $row, string $interval): array
+    {
+        // Convert bucket key to an ISO timestamp at the start of the bucket
+        $timestamp = $this->bucketToTimestamp($row['bucket'], $interval);
+
+        return [
+            'id' => null,
+            'timestamp' => $timestamp,
+            'systolic' => $row['systolic_avg'] !== null ? (int) round((float) $row['systolic_avg']) : null,
+            'diastolic' => $row['diastolic_avg'] !== null ? (int) round((float) $row['diastolic_avg']) : null,
+            'heart_rate' => $row['heart_rate_avg'] !== null ? (int) round((float) $row['heart_rate_avg']) : null,
+            'weight' => $row['weight_avg'] !== null ? round((float) $row['weight_avg'], 1) : null,
+            'emoji' => '📊', // aggregated — no single emoji applies
+            'aggregated' => true,
+            'count' => (int) $row['count'],
+            'interval' => $interval,
+        ];
+    }
+
+    /**
+     * Convert a bucket key (e.g. '2025-06', '2025-W23', '2025-06-15')
+     * to an ISO 8601 timestamp at the start of that bucket.
+     */
+    private function bucketToTimestamp(string $bucket, string $interval): string
+    {
+        try {
+            $tz = new \DateTimeZone('UTC');
+
+            return match ($interval) {
+                'day' => \DateTimeImmutable::createFromFormat('Y-m-d|', $bucket, $tz)
+                    ->format('c'),
+                'month' => \DateTimeImmutable::createFromFormat('Y-m|', $bucket, $tz)
+                    ->format('c'),
+                'week' => $this->weekBucketToTimestamp($bucket, $tz),
+            };
+        } catch (\Throwable) {
+            // Fallback: treat the bucket as a raw date string
+            return $bucket;
+        }
+    }
+
+    /**
+     * Convert a 'YYYY-WNN' bucket to an ISO timestamp at the Monday of that week.
+     */
+    private function weekBucketToTimestamp(string $bucket, \DateTimeZone $tz): string
+    {
+        // Parse YYYY-WNN
+        if (!preg_match('/^(\d{4})-W(\d{2})$/', $bucket, $m)) {
+            return $bucket;
+        }
+
+        $year = (int) $m[1];
+        $week = (int) $m[2];
+
+        // ISO 8601 week: Monday of week N
+        $jan4 = new \DateTimeImmutable(sprintf('%04d-01-04', $year), $tz);
+        $jan4Week = (int) $jan4->format('W');
+        $weekOffset = $week - $jan4Week;
+        $monday = $jan4->modify('this week')->modify("+{$weekOffset} weeks");
+
+        return $monday->format('c');
     }
 
     private function parseDate(?string $dateString): ?\DateTimeImmutable

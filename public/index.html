@@ -210,6 +210,11 @@
         <button class="btn-primary" style="align-self:flex-end;background:#059669;" onclick="exportCsv()">Export CSV</button>
     </div>
 
+    <!-- Aggregation notice (shown when data is aggregated for chart display) -->
+    <div id="aggregation-notice" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:0.5rem 1rem;margin-bottom:1rem;font-size:0.82rem;color:#92400e;">
+        📊 Large dataset detected — showing averages grouped by <strong id="agg-interval">day</strong> for chart readability (<span id="agg-total">0</span> total records).
+    </div>
+
     <!-- Latest Reading Card -->
     <div class="latest-reading" id="latest-reading">
         <span class="lr-empty">No readings yet. Submit your first log above!</span>

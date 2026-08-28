@@ -340,8 +340,15 @@ async function fetchLogs(retryCount = 0) {
             throw new Error(`Server error ${resp.status}`);
         }
         const json = await resp.json();
-        // Handle paginated response: extract data array
-        return Array.isArray(json) ? json : (json.data || []);
+        // Handle paginated or aggregated response: extract data array
+        const data = Array.isArray(json) ? json : (json.data || []);
+        // Store aggregation metadata for UI feedback
+        if (json.meta?.aggregated) {
+            window.__vitalPulseAggregated = { interval: json.meta.interval, total: json.meta.total };
+        } else {
+            window.__vitalPulseAggregated = null;
+        }
+        return data;
     } catch (err) {
         console.error('Fetch failed:', err);
         alert('Could not load data from server: ' + err.message);
@@ -404,6 +411,7 @@ async function renderCharts() {
     logs.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
     updateLatestReading(logs);
+    updateAggregationNotice();
     updateStatsFromApi();
 
     try {
@@ -534,6 +542,19 @@ async function updateStatsFromApi() {
             el.className = 'stat-trend ' + trend.cls;
         }
     });
+}
+
+function updateAggregationNotice() {
+    const notice = document.getElementById('aggregation-notice');
+    if (!notice) return;
+    const agg = window.__vitalPulseAggregated;
+    if (agg) {
+        notice.style.display = 'block';
+        document.getElementById('agg-interval').textContent = agg.interval;
+        document.getElementById('agg-total').textContent = agg.total.toLocaleString();
+    } else {
+        notice.style.display = 'none';
+    }
 }
 
 function updateLatestReading(logs) {

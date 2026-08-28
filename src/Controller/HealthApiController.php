@@ -163,7 +163,6 @@ class HealthApiController
 
             $repo = $this->entityManager->getRepository(HealthLog::class);
             $total = $repo->countByDateRange($dateFrom, $dateTo, $emoji);
-
         } catch (\Exception) {
             return new JsonResponse(['error' => 'Invalid date format. Use YYYY-MM-DD or ISO 8601 string.'], 400);
         }
@@ -196,10 +195,7 @@ class HealthApiController
         $aggregated = $repo->findAggregatedByDateRange($dateFrom, $dateTo, $emoji, $interval);
 
         return new JsonResponse([
-            'data' => array_map(
-                fn (array $row) => $this->serializeAggregatedLog($row, $interval),
-                $aggregated,
-            ),
+            'data' => array_map(fn (array $row) => $this->serializeAggregatedLog($row, $interval), $aggregated),
             'meta' => [
                 'page' => 1,
                 'limit' => count($aggregated),

@@ -497,7 +497,7 @@ class HealthApiController
 
         if ($count <= self::AGGREGATION_THRESHOLD) {
             return 'day';
-        } else if ($count <= 7 * self::AGGREGATION_THRESHOLD) {
+        } elseif ($count <= 7 * self::AGGREGATION_THRESHOLD) {
             return 'week';
         } else {
             return 'month';

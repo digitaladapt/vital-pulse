@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Optional read-only API key (`READ_ONLY_API_KEY`): a separate key that
+  can access `GET`/`HEAD` endpoints under `/api/v1` but is rejected on
+  write methods (`POST`, `PUT`, `DELETE`). Useful for integrations (e.g.
+  MCP server tools) that should never mutate data.
+
 ## [1.6.0] - 2026-08-25
 
 Public release: GitHub + Docker Hub publishing, documentation

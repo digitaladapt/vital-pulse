@@ -67,6 +67,18 @@ php -S 0.0.0.0:8080 -t public/
 
 All endpoints are prefixed with `/api/v1` and require an API key sent via the `X-API-Key` header.
 
+**Two key types:**
+
+| Key | Env var | Methods allowed |
+|-----|---------|-----------------|
+| Admin (full access) | `API_KEY` | `GET`, `POST`, `PUT`, `DELETE` |
+| Read-only | `READ_ONLY_API_KEY` (optional) | `GET`, `HEAD` only |
+
+Set `READ_ONLY_API_KEY` to a separate value to enable a read-only key —
+useful for integrations (e.g. an MCP server tool) that only need to query
+latest readings or stats when you'd rather they never mutate data. If
+unset, only the admin key is accepted.
+
 | Method   | Endpoint              | Description                            | Query Params                                   |
 |----------|-----------------------|----------------------------------------|------------------------------------------------|
 | `POST`   | `/api/v1/logs`        | Create a new health log entry          | —                                              |
@@ -167,13 +179,14 @@ Environment variables are loaded from the committed `.env` defaults plus a git-i
 | Variable          | Default                                                          | Description                                     |
 |-------------------|------------------------------------------------------------------|-------------------------------------------------|
 | `DATABASE_URL`    | `sqlite:///%kernel.project_dir%/var/data/health_tracker.db`      | Doctrine database connection URL (SQLite default)|
-| `API_KEY`         | `change_me_generate_with_openssl_rand_hex_32`              | API key required for `/api/v1/*` endpoints       |
+| `API_KEY`         | `change_me_generate_with_openssl_rand_hex_32`              | Admin API key required for `/api/v1/*` endpoints (full access) |
+| `READ_ONLY_API_KEY` | *(unset)*                                                  | Optional read-only API key (`GET`/`HEAD` only)  |
 | `APP_ENV`         | `prod`                                                            | Symfony environment (`dev`, `prod`, `test`)      |
 | `APP_SECRET`      | *(generated)*                                                    | Symfony secret key for hashes/tokens             |
 | `VITALPULSE_PORT` | `8080`                                                           | Host port mapped to the container's port 80 (Docker only) |
 | `APP_VERSION`     | `dev`                                                            | Version baked into the Docker image at build time (pass `--build-arg APP_VERSION=v1.3.0` or set in `host.env`) |
 
-> **Deployment model:** VitalPulse is designed for LAN/VPN deployment with a single shared API key. There is no user account system — the API key is the only authentication. For internet-facing deployments, put it behind a reverse proxy with additional access controls.
+> **Deployment model:** VitalPulse is designed for LAN/VPN deployment with API-key authentication (optionally one admin key + one read-only key). There is no user account system — API keys are the only authentication. For internet-facing deployments, put it behind a reverse proxy with additional access controls.
 
 ---
 

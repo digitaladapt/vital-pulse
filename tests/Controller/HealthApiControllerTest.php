@@ -1370,4 +1370,96 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(80, $body['data'][0]['heart_rate']);
     }
 
+    // ── Read-only API key tests (MCP support) ──
+
+    private const READ_ONLY_API_KEY = 'test_read_only_api_key_67890'; // matches .env.test
+
+    public function testReadOnlyKeyCanListLogs(): void
+    {
+        $this->seedLogEntry(70);
+
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::READ_ONLY_API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $body = json_decode($client->getResponse()->getContent(), true);
+        self::assertCount(1, $body['data']);
+        self::assertEquals(70, $body['data'][0]['heart_rate']);
+    }
+
+    public function testReadOnlyKeyCanGetStats(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/stats', [], [], [
+            'HTTP_X-API-KEY' => self::READ_ONLY_API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+    }
+
+    public function testReadOnlyKeyCannotCreateLog(): void
+    {
+        $client = $this->client;
+        $client->request('POST', '/api/v1/logs', [], [], [
+            'HTTP_X-API-KEY' => self::READ_ONLY_API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['heart_rate' => 72]));
+
+        self::assertResponseStatusCodeSame(401);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertStringContainsString('Read-only', $data['error'] ?? '');
+    }
+
+    public function testReadOnlyKeyCannotUpdateLog(): void
+    {
+        $log = $this->seedLogEntry(70);
+
+        $client = $this->client;
+        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::READ_ONLY_API_KEY,
+            'HTTP_CONTENT_TYPE' => 'application/json',
+        ], json_encode(['heart_rate' => 80]));
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testReadOnlyKeyCannotDeleteLog(): void
+    {
+        $log = $this->seedLogEntry(70);
+
+        $client = $this->client;
+        $client->request('DELETE', '/api/v1/logs/' . $log->getId(), [], [], [
+            'HTTP_X-API-KEY' => self::READ_ONLY_API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testReadOnlyKeyCannotExportCsv(): void
+    {
+        // Export is a GET, so the read-only key SHOULD be allowed.
+        // This test documents that behavior and protects it from regressions.
+        $this->seedLogEntry(70);
+
+        $client = $this->client;
+        $client->request('GET', '/api/v1/logs/export', [], [], [
+            'HTTP_X-API-KEY' => self::READ_ONLY_API_KEY,
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertStringContainsString('text/csv', (string) $client->getResponse()->headers->get('Content-Type'));
+    }
+
+    private function seedLogEntry(int $heartRate): \App\Entity\HealthLog
+    {
+        $log = new \App\Entity\HealthLog();
+        $log->setHeartRate($heartRate);
+        $this->em->persist($log);
+        $this->em->flush();
+
+        return $log;
+    }
+
 }

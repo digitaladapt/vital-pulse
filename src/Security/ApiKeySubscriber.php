@@ -6,16 +6,22 @@ namespace App\Security;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 class ApiKeySubscriber implements EventSubscriberInterface
 {
-    private string $apiKey;
+    private ?string $readOnlyApiKey;
 
-    public function __construct(string $apiKey)
-    {
-        $this->apiKey = $apiKey;
+    public function __construct(
+        private readonly string $apiKey,
+        ?string $readOnlyApiKey = null,
+    ) {
+        $this->readOnlyApiKey = ($readOnlyApiKey !== null && $readOnlyApiKey !== '')
+            ? $readOnlyApiKey
+            : null;
     }
 
     public static function getSubscribedEvents(): array
@@ -41,10 +47,24 @@ class ApiKeySubscriber implements EventSubscriberInterface
 
         $provided = $headerKey;
 
-        // hash_equals to avoid leaking the key via timing.
-        if (!hash_equals($this->apiKey, $provided)) {
-            $this->rejectUnauthorized($event, 'Invalid API key.');
+        // Admin (full-access) key — always valid.
+        if (hash_equals($this->apiKey, $provided)) {
+            return;
         }
+
+        // Read-only key — valid only for safe HTTP methods.
+        if ($this->readOnlyApiKey !== null && hash_equals($this->readOnlyApiKey, $provided)) {
+            if ($this->isSafeMethod($request)) {
+                return;
+            }
+
+            $this->rejectUnauthorized($event, 'Read-only API key cannot perform write operations.');
+
+            return;
+        }
+
+        // hash_equals avoids leaking the key via timing.
+        $this->rejectUnauthorized($event, 'Invalid API key.');
     }
 
     /**
@@ -64,8 +84,18 @@ class ApiKeySubscriber implements EventSubscriberInterface
         return str_starts_with((string) $routeName, 'api_logs_');
     }
 
+    /**
+     * HTTP methods that are safe (no state change): GET and HEAD.
+     * OPTIONS is handled by the framework/CORS layer before this point;
+     * anything else (POST, PUT, DELETE, PATCH…) is a write.
+     */
+    private function isSafeMethod(Request $request): bool
+    {
+        return in_array($request->getMethod(), ['GET', 'HEAD'], true);
+    }
+
     private function rejectUnauthorized(RequestEvent $event, string $message): void
     {
-        $event->setResponse(new JsonResponse(['error' => $message], 401));
+        $event->setResponse(new JsonResponse(['error' => $message], Response::HTTP_UNAUTHORIZED));
     }
 }

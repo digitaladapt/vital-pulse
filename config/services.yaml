@@ -1,5 +1,9 @@
 parameters:
     app.api_key: '%env(resolve:API_KEY)%'
+    # Optional read-only API key. When set, this key can access GET/HEAD
+    # endpoints under /api/v1 but cannot create, update, or delete data.
+    # Leave empty/unset to disable (single-admin-key mode).
+    env(READ_ONLY_API_KEY): ''
 
 services:
     _defaults:
@@ -9,7 +13,8 @@ services:
     App\:
         resource: '../src/'
 
-    # Override ApiKeySubscriber to inject the API key parameter explicitly
+    # Override ApiKeySubscriber to inject the API key parameters explicitly
     App\Security\ApiKeySubscriber:
         arguments:
             $apiKey: '%app.api_key%'
+            $readOnlyApiKey: '%env(resolve:READ_ONLY_API_KEY)%'

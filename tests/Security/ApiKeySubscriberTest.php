@@ -13,10 +13,11 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 class ApiKeySubscriberTest extends TestCase
 {
     private const VALID_KEY = 'my_secret_api_key_123';
+    private const READ_ONLY_KEY = 'my_read_only_api_key_456';
 
     public function testApiKeyValidViaHeader(): void
     {
-        $subscriber = new ApiKeySubscriber(self::VALID_KEY);
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
         $request = Request::create('/api/v1/logs', 'GET');
         $request->headers->set('X-API-Key', self::VALID_KEY);
         $request->attributes->set('_route', 'api_logs_');
@@ -36,7 +37,7 @@ class ApiKeySubscriberTest extends TestCase
     public function testApiKeyViaQueryParamIsRejected(): void
     {
         // Query parameter is no longer accepted — only X-API-Key header.
-        $subscriber = new ApiKeySubscriber(self::VALID_KEY);
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
         $request = Request::create('/api/v1/logs?api_key=' . self::VALID_KEY, 'GET');
         $request->attributes->set('_route', 'api_logs_');
 
@@ -54,7 +55,7 @@ class ApiKeySubscriberTest extends TestCase
 
     public function testApiKeyMissingReturns401(): void
     {
-        $subscriber = new ApiKeySubscriber(self::VALID_KEY);
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
         $request = Request::create('/api/v1/logs', 'GET');
         $request->attributes->set('_route', 'api_logs_');
 
@@ -72,7 +73,7 @@ class ApiKeySubscriberTest extends TestCase
 
     public function testApiKeyInvalidReturns401(): void
     {
-        $subscriber = new ApiKeySubscriber(self::VALID_KEY);
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
         $request = Request::create('/api/v1/logs', 'GET');
         $request->headers->set('X-API-Key', 'wrong_key');
         $request->attributes->set('_route', 'api_logs_');
@@ -91,7 +92,7 @@ class ApiKeySubscriberTest extends TestCase
 
     public function testNonApiRoutesAreSkipped(): void
     {
-        $subscriber = new ApiKeySubscriber(self::VALID_KEY);
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
         $request = Request::create('/index.html', 'GET');
         // Simulate non-API route (no api_logs_ prefix)
         $request->attributes->set('_route', '');
@@ -111,7 +112,7 @@ class ApiKeySubscriberTest extends TestCase
     public function testValidHeaderSucceedsEvenWithQueryParamsPresent(): void
     {
         // Query params are now ignored entirely; only the header matters.
-        $subscriber = new ApiKeySubscriber(self::VALID_KEY);
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
         $request = Request::create('/api/v1/logs?api_key=wrong', 'GET');
         $request->headers->set('X-API-Key', self::VALID_KEY);
         $request->attributes->set('_route', 'api_logs_');
@@ -130,7 +131,7 @@ class ApiKeySubscriberTest extends TestCase
 
     public function testEmptyHeaderAndQueryParamsTreatedAsMissing(): void
     {
-        $subscriber = new ApiKeySubscriber(self::VALID_KEY);
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
         $request = Request::create('/api/v1/logs', 'GET');
         // Set empty values that should be treated as missing
         $request->headers->set('X-API-Key', '');
@@ -143,6 +144,110 @@ class ApiKeySubscriberTest extends TestCase
 
         // Empty key is treated as missing → should reject
         $event->expects($this->once())
+            ->method('setResponse');
+
+        $subscriber->onKernelRequest($event);
+    }
+
+    public function testReadOnlyKeyAllowedOnGet(): void
+    {
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
+        $request = Request::create('/api/v1/logs', 'GET');
+        $request->headers->set('X-API-Key', self::READ_ONLY_KEY);
+        $request->attributes->set('_route', 'api_logs_');
+
+        $event = $this->createMock(RequestEvent::class);
+        $event->expects($this->atLeastOnce())
+            ->method('getRequest')
+            ->willReturn($request);
+        $event->expects($this->never())
+            ->method('setResponse');
+
+        $subscriber->onKernelRequest($event);
+    }
+
+    public function testReadOnlyKeyRejectedOnPost(): void
+    {
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
+        $request = Request::create('/api/v1/logs', 'POST');
+        $request->headers->set('X-API-Key', self::READ_ONLY_KEY);
+        $request->attributes->set('_route', 'api_logs_');
+
+        $event = $this->createMock(RequestEvent::class);
+        $event->expects($this->atLeastOnce())
+            ->method('getRequest')
+            ->willReturn($request);
+        $event->expects($this->once())
+            ->method('setResponse');
+
+        $subscriber->onKernelRequest($event);
+    }
+
+    public function testReadOnlyKeyRejectedOnPut(): void
+    {
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
+        $request = Request::create('/api/v1/logs/1', 'PUT');
+        $request->headers->set('X-API-Key', self::READ_ONLY_KEY);
+        $request->attributes->set('_route', 'api_logs_');
+
+        $event = $this->createMock(RequestEvent::class);
+        $event->expects($this->atLeastOnce())
+            ->method('getRequest')
+            ->willReturn($request);
+        $event->expects($this->once())
+            ->method('setResponse');
+
+        $subscriber->onKernelRequest($event);
+    }
+
+    public function testReadOnlyKeyRejectedOnDelete(): void
+    {
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
+        $request = Request::create('/api/v1/logs/1', 'DELETE');
+        $request->headers->set('X-API-Key', self::READ_ONLY_KEY);
+        $request->attributes->set('_route', 'api_logs_');
+
+        $event = $this->createMock(RequestEvent::class);
+        $event->expects($this->atLeastOnce())
+            ->method('getRequest')
+            ->willReturn($request);
+        $event->expects($this->once())
+            ->method('setResponse');
+
+        $subscriber->onKernelRequest($event);
+    }
+
+    public function testReadOnlyKeyNotConfiguredMeansNoReadOnlyAccess(): void
+    {
+        // When no read-only key is configured (null), even a valid-looking
+        // read-only key must be rejected.
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, null);
+        $request = Request::create('/api/v1/logs', 'GET');
+        $request->headers->set('X-API-Key', self::READ_ONLY_KEY);
+        $request->attributes->set('_route', 'api_logs_');
+
+        $event = $this->createMock(RequestEvent::class);
+        $event->expects($this->atLeastOnce())
+            ->method('getRequest')
+            ->willReturn($request);
+        $event->expects($this->once())
+            ->method('setResponse');
+
+        $subscriber->onKernelRequest($event);
+    }
+
+    public function testAdminKeyAllowedOnWriteWhenReadOnlyConfigured(): void
+    {
+        $subscriber = new ApiKeySubscriber(self::VALID_KEY, self::READ_ONLY_KEY);
+        $request = Request::create('/api/v1/logs', 'POST');
+        $request->headers->set('X-API-Key', self::VALID_KEY);
+        $request->attributes->set('_route', 'api_logs_');
+
+        $event = $this->createMock(RequestEvent::class);
+        $event->expects($this->atLeastOnce())
+            ->method('getRequest')
+            ->willReturn($request);
+        $event->expects($this->never())
             ->method('setResponse');
 
         $subscriber->onKernelRequest($event);

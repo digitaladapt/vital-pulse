@@ -12,6 +12,7 @@ services:
       APP_SECRET: ${APP_SECRET:-}
       DATABASE_URL: "sqlite:///%kernel.project_dir%/var/data/health_tracker.db"
       API_KEY: ${API_KEY:-change-me}
+      READ_ONLY_API_KEY: ${READ_ONLY_API_KEY:-}
       DEFAULT_URI: ${DEFAULT_URI:-http://localhost}
     restart: unless-stopped
     volumes:

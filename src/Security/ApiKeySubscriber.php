@@ -13,15 +13,10 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 class ApiKeySubscriber implements EventSubscriberInterface
 {
-    private ?string $readOnlyApiKey;
-
     public function __construct(
         private readonly string $apiKey,
-        ?string $readOnlyApiKey = null,
+        private readonly ?string $readOnlyApiKey = null,
     ) {
-        $this->readOnlyApiKey = ($readOnlyApiKey !== null && $readOnlyApiKey !== '')
-            ? $readOnlyApiKey
-            : null;
     }
 
     public static function getSubscribedEvents(): array
@@ -53,7 +48,7 @@ class ApiKeySubscriber implements EventSubscriberInterface
         }
 
         // Read-only key — valid only for safe HTTP methods.
-        if ($this->readOnlyApiKey !== null && hash_equals($this->readOnlyApiKey, $provided)) {
+        if ($this->readOnlyApiKey && hash_equals($this->readOnlyApiKey, $provided)) {
             if ($this->isSafeMethod($request)) {
                 return;
             }

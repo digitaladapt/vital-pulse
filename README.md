@@ -236,7 +236,7 @@ php vendor/bin/phpunit
 php vendor/bin/phpunit --testdox
 ```
 
-Test configuration is in `phpunit.dist.xml`. The test environment is defined in `.env.test`.
+Test configuration is in `phpunit.xml.dist`. The test environment is defined in `.env.test`.
 
 ### Starting the Dev Server
 

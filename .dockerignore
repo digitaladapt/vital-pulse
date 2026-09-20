@@ -11,7 +11,7 @@ vendor/
 config/secrets/prod/prod.decrypt.private.php
 tests/
 phpunit.xml
-phpunit.dist.xml
+phpunit.xml.dist
 Dockerfile
 compose*.yaml
 *.md

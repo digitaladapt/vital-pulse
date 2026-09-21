@@ -137,6 +137,9 @@
             white-space: nowrap;
         }
         .warning-banner .dismiss-btn:hover { background: #fde68a; }
+
+        /* Reading warnings toggle */
+        .checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.9rem; color: #4b5563; cursor: pointer; }
         </style>
 </head>
 <body>
@@ -172,6 +175,13 @@
             <div class="form-group">
                 <label>Mood</label>
                 <div class="emoji-select" id="mood-selector"></div>
+            </div>
+            <div class="form-group">
+                <label for="reading-warnings-toggle">Reading Warnings</label>
+                <label style="display:flex;align-items:center;gap:0.5rem;font-weight:500;font-size:0.9rem;color:#4b5563;cursor:pointer;">
+                    <input type="checkbox" id="reading-warnings-toggle" checked>
+                    <span>Show high/normal reading hints</span>
+                </label>
             </div>
             <button class="btn-primary" type="button" onclick="submitLog()">Submit Log</button>
         <div class="warning-banner hidden" id="reading-warning">

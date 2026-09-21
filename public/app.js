@@ -2,6 +2,12 @@
 const API_KEY_STORAGE = 'vitalpulse_api_key';
 let apiKey = localStorage.getItem(API_KEY_STORAGE);
 
+// ── Reading Warnings Setting (toggleable, default: enabled) ──
+const WARNINGS_STORAGE = 'vitalpulse_reading_warnings';
+// Default to enabled: stored value is only respected once the user has toggled
+// (i.e. stored 'false' disables; anything else — including never set — enables).
+let readingWarningsEnabled = localStorage.getItem(WARNINGS_STORAGE) !== 'false';
+
 const EMOJIS = ['🤩', '😀', '🙂', '😐', '🙁', '😩', '🥵', '😵‍💫', '🤢', '🥶'];
 let selectedEmoji = '😐';
 let filterEmojis = new Set(); // emoji(s) currently selected for filtering
@@ -30,6 +36,7 @@ function getCommonOptions() {
 document.addEventListener('DOMContentLoaded', () => {
     initMoodSelector();
     initFilterEmoji();
+    initReadingWarningsToggle();
     setDefaultDates();
     document.querySelector('.preset-btn[data-preset="30"]').classList.add('active');
     setDefaultReadingDateTime();
@@ -123,14 +130,49 @@ function dismissWarning() {
 }
 
 // ── Soft Validation on Input (per-field, real-time) ─────────
+// Toggleable feature: warnings about high/normal/etc. readings can be
+// turned off. Default is enabled. Setting persists in localStorage.
 const VALIDATION_FIELDS = ['sys', 'dia', 'hr-input'];
+
+/**
+ * Check whether reading warnings are enabled (default: yes).
+ * Stored 'false' disables them; anything else keeps them on.
+ */
+function areReadingWarningsEnabled() {
+    return localStorage.getItem(WARNINGS_STORAGE) !== 'false';
+}
+
+/**
+ * Enable/disable the reading warnings feature and persist the choice.
+ */
+function setReadingWarningsEnabled(enabled) {
+    readingWarningsEnabled = enabled;
+    localStorage.setItem(WARNINGS_STORAGE, enabled ? 'true' : 'false');
+    const toggle = document.getElementById('reading-warnings-toggle');
+    if (toggle) toggle.checked = enabled;
+    if (!enabled) {
+        hideWarning();
+    }
+}
+
+function initReadingWarningsToggle() {
+    const toggle = document.getElementById('reading-warnings-toggle');
+    if (!toggle) return;
+    // Reflect the persisted setting (default: enabled)
+    readingWarningsEnabled = areReadingWarningsEnabled();
+    toggle.checked = readingWarningsEnabled;
+    toggle.addEventListener('change', () => {
+        setReadingWarningsEnabled(toggle.checked);
+    });
+}
 
 VALIDATION_FIELDS.forEach(fieldId => {
     const input = document.getElementById(fieldId);
     if (!input) return;
 
-    // Show warning when user types into this field
+    // Show warning when user types into this field (only when enabled)
     input.addEventListener('input', () => {
+        if (!readingWarningsEnabled) return;
         const result = checkValidation(fieldId);
         if (result?.message) {
             showWarning(`⚠️ ${result.message}`);
@@ -141,6 +183,16 @@ VALIDATION_FIELDS.forEach(fieldId => {
     input.addEventListener('blur', () => {
         if (!input.value) hideWarning();
     });
+});
+
+// Keep the in-memory flag in sync with changes from other code paths
+window.addEventListener('storage', (e) => {
+    if (e.key === WARNINGS_STORAGE) {
+        readingWarningsEnabled = e.newValue !== 'false';
+        const toggle = document.getElementById('reading-warnings-toggle');
+        if (toggle) toggle.checked = readingWarningsEnabled;
+        if (!readingWarningsEnabled) hideWarning();
+    }
 });
 
 // ── Auto-Advance ──────────────────────────────────────────

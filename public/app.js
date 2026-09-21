@@ -3,10 +3,42 @@ const API_KEY_STORAGE = 'vitalpulse_api_key';
 let apiKey = localStorage.getItem(API_KEY_STORAGE);
 
 // ── Reading Warnings Setting (toggleable, default: enabled) ──
+// Deployment-wide default, set via the READING_WARNINGS_ENABLED env var
+// (served by /api/about). Defaults to enabled; the browser preference below
+// always overrides it once the user has toggled.
+let serverReadingWarningsDefault = true;
 const WARNINGS_STORAGE = 'vitalpulse_reading_warnings';
-// Default to enabled: stored value is only respected once the user has toggled
-// (i.e. stored 'false' disables; anything else — including never set — enables).
-let readingWarningsEnabled = localStorage.getItem(WARNINGS_STORAGE) !== 'false';
+// Stored value is only respected once the user has toggled:
+// stored 'false' or 'true' wins; anything else — including never set —
+// falls back to the server default.
+let readingWarningsEnabled = resolveReadingWarningsEnabled();
+
+function resolveReadingWarningsEnabled() {
+    const stored = localStorage.getItem(WARNINGS_STORAGE);
+    if (stored === 'false' || stored === 'true') return stored === 'true';
+    return serverReadingWarningsDefault;
+}
+
+// Fetch the deployment-wide default from the server (public endpoint,
+// no API key required).
+async function fetchServerReadingWarningsDefault() {
+    try {
+        const resp = await fetch('/api/about');
+        if (!resp.ok) return;
+        const json = await resp.json();
+        if (typeof json.reading_warnings_enabled === 'boolean') {
+            serverReadingWarningsDefault = json.reading_warnings_enabled;
+            // Only re-resolve if the user has never toggled (no stored value).
+            if (localStorage.getItem(WARNINGS_STORAGE) === null) {
+                readingWarningsEnabled = serverReadingWarningsDefault;
+                const toggle = document.getElementById('reading-warnings-toggle');
+                if (toggle) toggle.checked = readingWarningsEnabled;
+            }
+        }
+    } catch (err) {
+        // Server unreachable — keep the enabled default; not worth alerting.
+    }
+}
 
 const EMOJIS = ['🤩', '😀', '🙂', '😐', '🙁', '😩', '🥵', '😵‍💫', '🤢', '🥶'];
 let selectedEmoji = '😐';
@@ -37,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMoodSelector();
     initFilterEmoji();
     initReadingWarningsToggle();
+    fetchServerReadingWarningsDefault();
     setDefaultDates();
     document.querySelector('.preset-btn[data-preset="30"]').classList.add('active');
     setDefaultReadingDateTime();
@@ -131,15 +164,17 @@ function dismissWarning() {
 
 // ── Soft Validation on Input (per-field, real-time) ─────────
 // Toggleable feature: warnings about high/normal/etc. readings can be
-// turned off. Default is enabled. Setting persists in localStorage.
+// turned off. Default comes from the server (READING_WARNINGS_ENABLED
+// env var); the user's browser preference overrides it.
 const VALIDATION_FIELDS = ['sys', 'dia', 'hr-input'];
 
 /**
- * Check whether reading warnings are enabled (default: yes).
- * Stored 'false' disables them; anything else keeps them on.
+ * Check whether reading warnings are enabled.
+ * A stored browser preference ('true'/'false') always wins;
+ * with nothing stored, the server default applies.
  */
 function areReadingWarningsEnabled() {
-    return localStorage.getItem(WARNINGS_STORAGE) !== 'false';
+    return resolveReadingWarningsEnabled();
 }
 
 /**
@@ -158,8 +193,8 @@ function setReadingWarningsEnabled(enabled) {
 function initReadingWarningsToggle() {
     const toggle = document.getElementById('reading-warnings-toggle');
     if (!toggle) return;
-    // Reflect the persisted setting (default: enabled)
-    readingWarningsEnabled = areReadingWarningsEnabled();
+    // Reflect the persisted setting (or server default if never toggled)
+    readingWarningsEnabled = resolveReadingWarningsEnabled();
     toggle.checked = readingWarningsEnabled;
     toggle.addEventListener('change', () => {
         setReadingWarningsEnabled(toggle.checked);

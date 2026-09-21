@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -15,6 +16,8 @@ class SystemController extends AbstractController
 
     public function __construct(
         private EntityManagerInterface $entityManager,
+        #[Autowire('%app.reading_warnings_enabled%')]
+        private bool $readingWarningsEnabled,
     ) {
     }
 
@@ -24,6 +27,7 @@ class SystemController extends AbstractController
         return new JsonResponse([
             'name' => 'vital-pulse',
             'version' => $this->getVersion(),
+            'reading_warnings_enabled' => $this->readingWarningsEnabled,
         ]);
     }
 

@@ -58,6 +58,34 @@ class SystemControllerTest extends WebTestCase
         self::assertNotSame('', $data['version']);
     }
 
+    public function testAboutEndpointReturnsReadingWarningsEnabledFlag(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/api/about');
+
+        $data = json_decode($client->getResponse()->getContent(), true);
+
+        self::assertArrayHasKey('reading_warnings_enabled', $data);
+        self::assertIsBool($data['reading_warnings_enabled']);
+    }
+
+    public function testAboutEndpointReflectsReadingWarningsSetting(): void
+    {
+        // Construct the controller directly (like the health test below) to
+        // verify the flag is passed straight through to the response.
+        $mockEm = $this->createMock(EntityManagerInterface::class);
+
+        $controller = new \App\Controller\SystemController($mockEm, true);
+        $controller->setContainer(static::getContainer());
+        $data = json_decode($controller->about()->getContent(), true);
+        self::assertTrue($data['reading_warnings_enabled']);
+
+        $controller = new \App\Controller\SystemController($mockEm, false);
+        $controller->setContainer(static::getContainer());
+        $data = json_decode($controller->about()->getContent(), true);
+        self::assertFalse($data['reading_warnings_enabled']);
+    }
+
     public function testAboutEndpointAccessibleWithoutApiKey(): void
     {
         $client = $this->client;
@@ -76,14 +104,14 @@ class SystemControllerTest extends WebTestCase
         self::assertResponseHeaderSame('Content-Type', 'application/json');
     }
 
-    public function testAboutEndpointResponseHasExactlyTwoKeys(): void
+    public function testAboutEndpointResponseHasExactlyThreeKeys(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/about');
 
         $data = json_decode($client->getResponse()->getContent(), true);
 
-        self::assertSame(['name', 'version'], array_keys($data));
+        self::assertSame(['name', 'version', 'reading_warnings_enabled'], array_keys($data));
     }
 
     public function testAboutEndpointRouteOnlyAllowsGet(): void
@@ -158,7 +186,7 @@ class SystemControllerTest extends WebTestCase
         $mockConnection->method('executeQuery')->willThrowException(new \Exception('Database is down'));
         $mockEm->method('getConnection')->willReturn($mockConnection);
 
-        $controller = new \App\Controller\SystemController($mockEm);
+        $controller = new \App\Controller\SystemController($mockEm, true);
         $response = $controller->health();
 
         self::assertSame(503, $response->getStatusCode());

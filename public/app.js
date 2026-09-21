@@ -2,6 +2,44 @@
 const API_KEY_STORAGE = 'vitalpulse_api_key';
 let apiKey = localStorage.getItem(API_KEY_STORAGE);
 
+// ── Reading Warnings Setting (toggleable, default: enabled) ──
+// Deployment-wide default, set via the READING_WARNINGS_ENABLED env var
+// (served by /api/about). Defaults to enabled; the browser preference below
+// always overrides it once the user has toggled.
+let serverReadingWarningsDefault = true;
+const WARNINGS_STORAGE = 'vitalpulse_reading_warnings';
+// Stored value is only respected once the user has toggled:
+// stored 'false' or 'true' wins; anything else — including never set —
+// falls back to the server default.
+let readingWarningsEnabled = resolveReadingWarningsEnabled();
+
+function resolveReadingWarningsEnabled() {
+    const stored = localStorage.getItem(WARNINGS_STORAGE);
+    if (stored === 'false' || stored === 'true') return stored === 'true';
+    return serverReadingWarningsDefault;
+}
+
+// Fetch the deployment-wide default from the server (public endpoint,
+// no API key required).
+async function fetchServerReadingWarningsDefault() {
+    try {
+        const resp = await fetch('/api/about');
+        if (!resp.ok) return;
+        const json = await resp.json();
+        if (typeof json.reading_warnings_enabled === 'boolean') {
+            serverReadingWarningsDefault = json.reading_warnings_enabled;
+            // Only re-resolve if the user has never toggled (no stored value).
+            if (localStorage.getItem(WARNINGS_STORAGE) === null) {
+                readingWarningsEnabled = serverReadingWarningsDefault;
+                const toggle = document.getElementById('reading-warnings-toggle');
+                if (toggle) toggle.checked = readingWarningsEnabled;
+            }
+        }
+    } catch (err) {
+        // Server unreachable — keep the enabled default; not worth alerting.
+    }
+}
+
 const EMOJIS = ['🤩', '😀', '🙂', '😐', '🙁', '😩', '🥵', '😵‍💫', '🤢', '🥶'];
 let selectedEmoji = '😐';
 let filterEmojis = new Set(); // emoji(s) currently selected for filtering
@@ -30,6 +68,8 @@ function getCommonOptions() {
 document.addEventListener('DOMContentLoaded', () => {
     initMoodSelector();
     initFilterEmoji();
+    initReadingWarningsToggle();
+    fetchServerReadingWarningsDefault();
     setDefaultDates();
     document.querySelector('.preset-btn[data-preset="30"]').classList.add('active');
     setDefaultReadingDateTime();
@@ -123,14 +163,51 @@ function dismissWarning() {
 }
 
 // ── Soft Validation on Input (per-field, real-time) ─────────
+// Toggleable feature: warnings about high/normal/etc. readings can be
+// turned off. Default comes from the server (READING_WARNINGS_ENABLED
+// env var); the user's browser preference overrides it.
 const VALIDATION_FIELDS = ['sys', 'dia', 'hr-input'];
+
+/**
+ * Check whether reading warnings are enabled.
+ * A stored browser preference ('true'/'false') always wins;
+ * with nothing stored, the server default applies.
+ */
+function areReadingWarningsEnabled() {
+    return resolveReadingWarningsEnabled();
+}
+
+/**
+ * Enable/disable the reading warnings feature and persist the choice.
+ */
+function setReadingWarningsEnabled(enabled) {
+    readingWarningsEnabled = enabled;
+    localStorage.setItem(WARNINGS_STORAGE, enabled ? 'true' : 'false');
+    const toggle = document.getElementById('reading-warnings-toggle');
+    if (toggle) toggle.checked = enabled;
+    if (!enabled) {
+        hideWarning();
+    }
+}
+
+function initReadingWarningsToggle() {
+    const toggle = document.getElementById('reading-warnings-toggle');
+    if (!toggle) return;
+    // Reflect the persisted setting (or server default if never toggled)
+    readingWarningsEnabled = resolveReadingWarningsEnabled();
+    toggle.checked = readingWarningsEnabled;
+    toggle.addEventListener('change', () => {
+        setReadingWarningsEnabled(toggle.checked);
+    });
+}
 
 VALIDATION_FIELDS.forEach(fieldId => {
     const input = document.getElementById(fieldId);
     if (!input) return;
 
-    // Show warning when user types into this field
+    // Show warning when user types into this field (only when enabled)
     input.addEventListener('input', () => {
+        if (!readingWarningsEnabled) return;
         const result = checkValidation(fieldId);
         if (result?.message) {
             showWarning(`⚠️ ${result.message}`);
@@ -141,6 +218,16 @@ VALIDATION_FIELDS.forEach(fieldId => {
     input.addEventListener('blur', () => {
         if (!input.value) hideWarning();
     });
+});
+
+// Keep the in-memory flag in sync with changes from other code paths
+window.addEventListener('storage', (e) => {
+    if (e.key === WARNINGS_STORAGE) {
+        readingWarningsEnabled = e.newValue !== 'false';
+        const toggle = document.getElementById('reading-warnings-toggle');
+        if (toggle) toggle.checked = readingWarningsEnabled;
+        if (!readingWarningsEnabled) hideWarning();
+    }
 });
 
 // ── Auto-Advance ──────────────────────────────────────────

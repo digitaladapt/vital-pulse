@@ -7,6 +7,13 @@ parameters:
     # Leave empty/unset to disable (single-admin-key mode).
     app.read_only_api_key: '%env(resolve:READ_ONLY_API_KEY)%'
 
+    # Deployment-wide default for the dashboard reading-entry warnings
+    # (high/normal/etc. hints shown while typing a new reading).
+    # Defaults to 1 (enabled) — non-breaking. Users can still toggle per
+    # browser; the browser preference overrides this default.
+    env(READING_WARNINGS_ENABLED): '1'
+    app.reading_warnings_enabled: '%env(bool:READING_WARNINGS_ENABLED)%'
+
 services:
     _defaults:
         autowire: true

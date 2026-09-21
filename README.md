@@ -16,6 +16,7 @@
 - **REST API** — simple JSON endpoints with API-key authentication
 - **SQLite storage** — zero-config, single-file database
 - **Dashboard** — single-page vanilla HTML/JS frontend, no build step; API key stored in browser `localStorage`
+- **Toggleable reading hints** — the high/normal/etc. warnings shown while entering a new reading can be turned off per browser, with a deployment-wide default via `READING_WARNINGS_ENABLED` (enabled by default)
 
 <!-- screenshot placeholder -->
 <!-- ![Dashboard screenshot](docs/screenshot.png) -->
@@ -185,6 +186,7 @@ Environment variables are loaded from the committed `.env` defaults plus a git-i
 | `APP_SECRET`      | *(generated)*                                                    | Symfony secret key for hashes/tokens             |
 | `VITALPULSE_PORT` | `8080`                                                           | Host port mapped to the container's port 80 (Docker only) |
 | `APP_VERSION`     | `dev`                                                            | Version baked into the Docker image at build time (pass `--build-arg APP_VERSION=v1.3.0` or set in `host.env`) |
+| `READING_WARNINGS_ENABLED` | `1`                                                     | Default for the dashboard reading-entry warnings toggle (high/normal/etc. hints while entering a reading). Set `0` to disable deployment-wide. Per-browser toggle overrides this. |
 
 > **Deployment model:** VitalPulse is designed for LAN/VPN deployment with API-key authentication (optionally one admin key + one read-only key). There is no user account system — API keys are the only authentication. For internet-facing deployments, put it behind a reverse proxy with additional access controls.
 

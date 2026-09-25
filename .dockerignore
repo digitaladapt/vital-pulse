@@ -1,23 +1,78 @@
+# .dockerignore — the build context for `COPY . .` in the Dockerfile.
+#
+# This is a denylist, not an allowlist: anything not listed here IS shipped into
+# the image. The failure mode is therefore inverted from the eight
+# `COPY ./x /app/x` lines it replaced — a missing entry here silently bakes a
+# file in, so the security-relevant entries below are ordered first.
+#
+# GUIDING-LIGHT §6.
+
+# ── VCS & CI ────────────────────────────────────────────────────────────────
 .git
+.gitea
+.github
 .gitignore
-.phpunit.cache
-var/
-vendor/
+.gitattributes
+.editorconfig
+
+# ── Secrets: NEVER bake these into a layer (§6.1, §8.12) ────────────────────
+# Bare `.env` is listed deliberately: it is exactly the file a developer has
+# locally and it must not reach an image layer. Deleting it in a later layer
+# does not remove it from the image, so it cannot be copied in at all.
+.env
 .env.local
 .env.local.php
 .env.*.local
+.env.*.dev
 .env.test
-.env.dev
+host.env
 config/secrets/prod/prod.decrypt.private.php
+
+# ── Local runtime state (§5.2) ──────────────────────────────────────────────
+# var/ holds the dev cache, logs and the SQLite file; the prod cache is warmed
+# inside the image and the database is a mounted volume.
+var/
+*.sqlite
+*.sqlite3
+*.db
+
+# ── Rebuilt inside the image from composer.lock ─────────────────────────────
+vendor/
+
+# ── Dev / test artefacts not needed at runtime ──────────────────────────────
 tests/
+coverage/
+.phpunit.cache/
+.phpunit.result.cache
 phpunit.xml
-phpunit.xml.dist
+phpunit.dist.xml
+.php-cs-fixer.cache
+.php-cs-fixer.dist.php
+.php-cs-fixer.php
+phpstan.neon.dist
+phpstan-baseline.neon
+
+# ── Build inputs that aren't app payload ────────────────────────────────────
 Dockerfile
+.dockerignore
+docker-bake.hcl
 compose*.yaml
+docker-compose*.yaml
+
+# ── Docs, examples and host-side tooling ────────────────────────────────────
+# The edge-proxy Caddyfile is reference material for whoever runs the host
+# (§4.3); the config that ships is docker/Caddyfile, copied explicitly.
+docs/
 *.md
 Caddyfile
 Domainfile
 run.sh
 deploy.sh
-host.env
+bin/dev.sh
 composer.phar
+
+# ── Editor / OS noise ───────────────────────────────────────────────────────
+.idea
+.vscode
+*.swp
+.DS_Store

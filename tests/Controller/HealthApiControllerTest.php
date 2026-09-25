@@ -6,7 +6,9 @@ namespace App\Tests\Controller;
 
 use App\Entity\HealthLog;
 use App\Tests\SchemaSetupTrait;
-use Doctrine\ORM\EntityManagerInterface;
+use DateTimeImmutable;
+use DateTimeInterface;
+use Override;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class HealthApiControllerTest extends WebTestCase
@@ -15,6 +17,7 @@ class HealthApiControllerTest extends WebTestCase
 
     private const API_KEY = 'test_api_key_12345'; // matches .env.test
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -23,13 +26,14 @@ class HealthApiControllerTest extends WebTestCase
         $this->setUpSchema();
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         $this->tearDownSchema();
         parent::tearDown();
     }
 
-    public function testPostLogMissingApiKeyReturns401(): void
+    public function test_post_log_missing_api_key_returns401(): void
     {
         $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
@@ -39,7 +43,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testPostLogInvalidApiKeyReturns401(): void
+    public function test_post_log_invalid_api_key_returns401(): void
     {
         $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
@@ -50,7 +54,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testPostLogWithEmptyBodyReturns400(): void
+    public function test_post_log_with_empty_body_returns400(): void
     {
         $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
@@ -61,7 +65,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogWithOnlyEmojiReturns400(): void
+    public function test_post_log_with_only_emoji_returns400(): void
     {
         $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
@@ -72,7 +76,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogSystolicOnlyReturns400(): void
+    public function test_post_log_systolic_only_returns400(): void
     {
         $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
@@ -85,7 +89,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertStringContainsString('both systolic and diastolic', strtolower((string) ($data['error'] ?? '')));
     }
 
-    public function testPostLogMinimalValidEntrySucceeds(): void
+    public function test_post_log_minimal_valid_entry_succeeds(): void
     {
         $client = $this->client;
         $payload = ['heart_rate' => 72];
@@ -102,7 +106,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertArrayHasKey('timestamp', $data);
     }
 
-    public function testPostLogFullEntrySucceeds(): void
+    public function test_post_log_full_entry_succeeds(): void
     {
         $client = $this->client;
         $payload = [
@@ -126,7 +130,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('🙂', $data['emoji']);
     }
 
-    public function testPostLogWithCustomTimestampSucceeds(): void
+    public function test_post_log_with_custom_timestamp_succeeds(): void
     {
         $client = $this->client;
         $payload = [
@@ -141,12 +145,12 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(201);
         $data = json_decode($client->getResponse()->getContent(), true);
         // format('c') outputs '+00:00' instead of 'Z'; compare as DateTimeImmutable
-        $ts = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['timestamp']);
+        $ts = DateTimeImmutable::createFromFormat(DateTimeInterface::ATOM, $data['timestamp']);
         self::assertNotNull($ts);
-        self::assertEquals(new \DateTimeImmutable('2025-03-15T08:30:00Z'), $ts);
+        self::assertEquals(new DateTimeImmutable('2025-03-15T08:30:00Z'), $ts);
     }
 
-    public function testGetLogsReturnsEmptyArrayWhenNoData(): void
+    public function test_get_logs_returns_empty_array_when_no_data(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/v1/logs', [], [], [
@@ -160,7 +164,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertCount(0, $body['data']);
     }
 
-    public function testGetLogsReturnsCreatedEntries(): void
+    public function test_get_logs_returns_created_entries(): void
     {
         // Create some logs first
         $this->em->persist(new HealthLog());
@@ -184,14 +188,14 @@ class HealthApiControllerTest extends WebTestCase
         self::assertCount(3, $data); // includes the one we persisted without measurements for schema test; should still appear
     }
 
-    public function testGetLogsFilteredByDateRange(): void
+    public function test_get_logs_filtered_by_date_range(): void
     {
         // Insert logs with specific timestamps
-        $old = new HealthLog(new \DateTimeImmutable('2025-01-01T10:00:00Z'));
+        $old = new HealthLog(new DateTimeImmutable('2025-01-01T10:00:00Z'));
         $old->setHeartRate(70);
         $this->em->persist($old);
 
-        $new = new HealthLog(new \DateTimeImmutable('2025-06-01T14:00:00Z'));
+        $new = new HealthLog(new DateTimeImmutable('2025-06-01T14:00:00Z'));
         $new->setHeartRate(80);
         $this->em->persist($new);
 
@@ -211,7 +215,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(80, $data[0]['heart_rate']);
     }
 
-    public function testGetLogsFilteredByEmoji(): void
+    public function test_get_logs_filtered_by_emoji(): void
     {
         $log1 = new HealthLog();
         $log1->setHeartRate(70)->setEmoji('😀');
@@ -229,7 +233,7 @@ class HealthApiControllerTest extends WebTestCase
 
         $client = $this->client;
         $emojiEncoded = rawurlencode('😀');
-        $client->request("GET", "/api/v1/logs?emoji={$emojiEncoded}", [], [], [
+        $client->request('GET', "/api/v1/logs?emoji={$emojiEncoded}", [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
 
@@ -239,13 +243,13 @@ class HealthApiControllerTest extends WebTestCase
         self::assertCount(2, $body['data']); // only the 😀 ones
     }
 
-    public function testGetLogsOrderedByTimestampDescending(): void
+    public function test_get_logs_ordered_by_timestamp_descending(): void
     {
-        $old = new HealthLog(new \DateTimeImmutable('2025-01-01T00:00:00Z'));
+        $old = new HealthLog(new DateTimeImmutable('2025-01-01T00:00:00Z'));
         $old->setHeartRate(70);
         $this->em->persist($old);
 
-        $newer = new HealthLog(new \DateTimeImmutable('2025-06-01T00:00:00Z'));
+        $newer = new HealthLog(new DateTimeImmutable('2025-06-01T00:00:00Z'));
         $newer->setHeartRate(80);
         $this->em->persist($newer);
 
@@ -265,12 +269,12 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('2025-06-01T00:00:00+00:00', $data[0]['timestamp']);
     }
 
-    public function testApiKeyViaQueryParamIsRejected(): void
+    public function test_api_key_via_query_param_is_rejected(): void
     {
         // Query parameter is no longer accepted — only X-API-Key header.
         $client = $this->client;
         $payload = ['heart_rate' => 68];
-        $client->request('POST', '/api/v1/logs?api_key=' . self::API_KEY, [], [], [
+        $client->request('POST', '/api/v1/logs?api_key='.self::API_KEY, [], [], [
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode($payload));
 
@@ -279,7 +283,7 @@ class HealthApiControllerTest extends WebTestCase
 
     // ── Validation group fix (#63): Range constraints now execute ──
 
-    public function testPostLogSystolicOutOfRangeReturns400(): void
+    public function test_post_log_systolic_out_of_range_returns400(): void
     {
         $client = $this->client;
         $payload = ['systolic' => 9999, 'diastolic' => 80];
@@ -296,7 +300,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertStringContainsString('Systolic', implode(' ', $data['details']['systolic']));
     }
 
-    public function testPostLogNegativeHeartRateReturns400(): void
+    public function test_post_log_negative_heart_rate_returns400(): void
     {
         $client = $this->client;
         $payload = ['heart_rate' => -10];
@@ -308,7 +312,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogWeightOutOfRangeReturns400(): void
+    public function test_post_log_weight_out_of_range_returns400(): void
     {
         $client = $this->client;
         $payload = ['weight' => 5000];
@@ -322,7 +326,7 @@ class HealthApiControllerTest extends WebTestCase
 
     // ── Widened ranges (#107): edge-case values are accepted ──
 
-    public function testPostLogLowSystolicWithinWideRangeSucceeds(): void
+    public function test_post_log_low_systolic_within_wide_range_succeeds(): void
     {
         $client = $this->client;
         $payload = ['systolic' => 25, 'diastolic' => 15];
@@ -334,7 +338,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(201);
     }
 
-    public function testPostLogAthleteLowHeartRateSucceeds(): void
+    public function test_post_log_athlete_low_heart_rate_succeeds(): void
     {
         $client = $this->client;
         $payload = ['heart_rate' => 35];
@@ -348,7 +352,7 @@ class HealthApiControllerTest extends WebTestCase
 
     // ── Exception message leak fix (#64): 500 responses are generic ──
 
-    public function testPostLogPersistenceFailureReturnsGenericMessage(): void
+    public function test_post_log_persistence_failure_returns_generic_message(): void
     {
         // This test verifies that if persistence fails, the error message
         // does not leak internal details. We can't easily trigger a real
@@ -361,7 +365,7 @@ class HealthApiControllerTest extends WebTestCase
 
     // ── Serialization dedup (#65): response shape is consistent ──
 
-    public function testPostLogResponseHasAllExpectedFields(): void
+    public function test_post_log_response_has_all_expected_fields(): void
     {
         $client = $this->client;
         $payload = [
@@ -382,7 +386,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals($expectedKeys, array_keys($data));
     }
 
-    public function testGetLogsResponseHasSameFieldsAsPost(): void
+    public function test_get_logs_response_has_same_fields_as_post(): void
     {
         // Create a log first
         $log = new HealthLog();
@@ -405,7 +409,7 @@ class HealthApiControllerTest extends WebTestCase
 
     // ── Stats endpoint (#103): GET /api/v1/logs/stats ──
 
-    public function testGetStatsReturnsEmptyWhenNoData(): void
+    public function test_get_stats_returns_empty_when_no_data(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/v1/logs/stats', [], [], [
@@ -421,7 +425,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertNull($data['weight']['avg']);
     }
 
-    public function testGetStatsReturnsAggregatedMetrics(): void
+    public function test_get_stats_returns_aggregated_metrics(): void
     {
         $log1 = new HealthLog();
         $log1->setSystolic(120)->setDiastolic(80)->setHeartRate(70)->setWeight(180.0);
@@ -468,13 +472,13 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(190.0, $data['weight']['max']);
     }
 
-    public function testGetStatsFilteredByDateRange(): void
+    public function test_get_stats_filtered_by_date_range(): void
     {
-        $old = new HealthLog(new \DateTimeImmutable('2025-01-01T10:00:00Z'));
+        $old = new HealthLog(new DateTimeImmutable('2025-01-01T10:00:00Z'));
         $old->setSystolic(120)->setDiastolic(80)->setHeartRate(70)->setWeight(180.0);
         $this->em->persist($old);
 
-        $new = new HealthLog(new \DateTimeImmutable('2025-06-01T14:00:00Z'));
+        $new = new HealthLog(new DateTimeImmutable('2025-06-01T14:00:00Z'));
         $new->setSystolic(140)->setDiastolic(95)->setHeartRate(85)->setWeight(175.0);
         $this->em->persist($new);
 
@@ -496,7 +500,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(175.0, $data['weight']['avg']);
     }
 
-    public function testGetStatsRejectsInvalidDateRange(): void
+    public function test_get_stats_rejects_invalid_date_range(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/v1/logs/stats?from=2025-06-01&to=2025-01-01', [], [], [
@@ -506,7 +510,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testGetStatsRequiresApiKey(): void
+    public function test_get_stats_requires_api_key(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/v1/logs/stats', [], [], []);
@@ -516,7 +520,7 @@ class HealthApiControllerTest extends WebTestCase
 
     // ── Edge-case tests (#76): invalid input types and boundary conditions ──
 
-    public function testPostLogNonNumericSystolicReturns400(): void
+    public function test_post_log_non_numeric_systolic_returns400(): void
     {
         $client = $this->client;
         $payload = ['systolic' => 'abc', 'diastolic' => 80];
@@ -531,7 +535,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertArrayHasKey('systolic', $data['details'] ?? []);
     }
 
-    public function testPostLogNonNumericWeightReturns400(): void
+    public function test_post_log_non_numeric_weight_returns400(): void
     {
         $client = $this->client;
         $payload = ['weight' => 'heavy'];
@@ -545,7 +549,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertArrayHasKey('weight', $data['details'] ?? []);
     }
 
-    public function testPostLogStringWithDigitsSystolicReturns400(): void
+    public function test_post_log_string_with_digits_systolic_returns400(): void
     {
         // "12abc" should be rejected — filter_var rejects it, unlike (int) cast
         $client = $this->client;
@@ -558,7 +562,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogLongEmojiStringReturns400(): void
+    public function test_post_log_long_emoji_string_returns400(): void
     {
         $client = $this->client;
         $payload = ['heart_rate' => 72, 'emoji' => str_repeat('🎉', 11)];
@@ -572,7 +576,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertStringContainsString('Emoji', $data['error'] ?? '');
     }
 
-    public function testPostLogNullSystolicWithHeartRateReturns201(): void
+    public function test_post_log_null_systolic_with_heart_rate_returns201(): void
     {
         // Explicit null for systolic should be treated as "not provided"
         $client = $this->client;
@@ -588,7 +592,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(72, $data['heart_rate']);
     }
 
-    public function testPostLogAllFieldsNullReturns400(): void
+    public function test_post_log_all_fields_null_returns400(): void
     {
         // All fields null → no measurements → should 400
         $client = $this->client;
@@ -601,7 +605,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogNonObjectJsonStringReturns400(): void
+    public function test_post_log_non_object_json_string_returns400(): void
     {
         $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
@@ -612,7 +616,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogJsonArrayReturns400(): void
+    public function test_post_log_json_array_returns400(): void
     {
         $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
@@ -623,7 +627,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogNegativeSystolicReturns400(): void
+    public function test_post_log_negative_systolic_returns400(): void
     {
         $client = $this->client;
         $payload = ['systolic' => -120, 'diastolic' => 80];
@@ -635,7 +639,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogNegativeWeightReturns400(): void
+    public function test_post_log_negative_weight_returns400(): void
     {
         $client = $this->client;
         $payload = ['weight' => -50.0];
@@ -647,7 +651,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogFloatSystolicReturns400(): void
+    public function test_post_log_float_systolic_returns400(): void
     {
         // 120.5 is not a valid integer — filter_var with FILTER_VALIDATE_INT rejects it
         $client = $this->client;
@@ -660,7 +664,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogBooleanSystolicReturns400(): void
+    public function test_post_log_boolean_systolic_returns400(): void
     {
         // true would be cast to 1 by (int) — filter_var should reject it
         $client = $this->client;
@@ -673,7 +677,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogEmptyStringEmojiUsesDefault(): void
+    public function test_post_log_empty_string_emoji_uses_default(): void
     {
         $client = $this->client;
         $payload = ['heart_rate' => 72, 'emoji' => ''];
@@ -687,10 +691,9 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('😐', $data['emoji']); // empty emoji falls back to default
     }
 
-
     // ── Emoji validation tests (#77): regex-based emoji enforcement ──
 
-    public function testPostLogArbitraryStringEmojiReturns400(): void
+    public function test_post_log_arbitrary_string_emoji_returns400(): void
     {
         $client = $this->client;
         $payload = ['heart_rate' => 72, 'emoji' => 'alert(1)'];
@@ -704,7 +707,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertStringContainsString('emoji', strtolower($data['error'] ?? ''));
     }
 
-    public function testPostLogHtmlTagEmojiReturns400(): void
+    public function test_post_log_html_tag_emoji_returns400(): void
     {
         $client = $this->client;
         $payload = ['heart_rate' => 72, 'emoji' => '<script>'];
@@ -716,7 +719,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testPostLogNumericStringEmojiReturns400(): void
+    public function test_post_log_numeric_string_emoji_returns400(): void
     {
         $client = $this->client;
         $payload = ['heart_rate' => 72, 'emoji' => '12345'];
@@ -745,7 +748,7 @@ class HealthApiControllerTest extends WebTestCase
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('frontendEmojiProvider')]
-    public function testPostLogFrontendEmojiAccepted(string $emoji): void
+    public function test_post_log_frontend_emoji_accepted(string $emoji): void
     {
         $client = $this->client;
         $payload = ['heart_rate' => 72, 'emoji' => $emoji];
@@ -759,7 +762,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals($emoji, $data['emoji']);
     }
 
-    public function testPostLogZwjEmojiSequenceAccepted(): void
+    public function test_post_log_zwj_emoji_sequence_accepted(): void
     {
         // 😵‍💫 uses a zero-width joiner — must be accepted
         $client = $this->client;
@@ -774,7 +777,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('😵‍💫', $data['emoji']);
     }
 
-    public function testPostLogVariationSelectorEmojiAccepted(): void
+    public function test_post_log_variation_selector_emoji_accepted(): void
     {
         // 🙁 uses a variation selector — must be accepted
         $client = $this->client;
@@ -789,7 +792,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('🙁', $data['emoji']);
     }
 
-    public function testPostLogMixedEmojiAndTextReturns400(): void
+    public function test_post_log_mixed_emoji_and_text_returns400(): void
     {
         // Emoji followed by text should be rejected
         $client = $this->client;
@@ -802,7 +805,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testUpdateLogArbitraryStringEmojiReturns400(): void
+    public function test_update_log_arbitrary_string_emoji_returns400(): void
     {
         // First create a valid log
         $log = new HealthLog();
@@ -813,7 +816,7 @@ class HealthApiControllerTest extends WebTestCase
 
         $client = $this->client;
         $payload = ['emoji' => 'alert(1)'];
-        $client->request('PUT', '/api/v1/logs/' . $id, [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$id, [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode($payload));
@@ -825,7 +828,7 @@ class HealthApiControllerTest extends WebTestCase
 
     // ── CSV Export (#100): GET /api/v1/logs/export ──
 
-    public function testExportCsvRequiresApiKey(): void
+    public function test_export_csv_requires_api_key(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/v1/logs/export', [], [], []);
@@ -833,7 +836,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testExportCsvReturnsEmptyCsvWithHeadersOnly(): void
+    public function test_export_csv_returns_empty_csv_with_headers_only(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/v1/logs/export', [], [], [
@@ -846,10 +849,10 @@ class HealthApiControllerTest extends WebTestCase
 
         $content = $client->getResponse()->getContent();
         // BOM + header row only
-        self::assertStringStartsWith("\xEF\xBB\xBF" . 'id,timestamp,systolic,diastolic,heart_rate,weight,emoji', $content);
+        self::assertStringStartsWith("\xEF\xBB\xBF".'id,timestamp,systolic,diastolic,heart_rate,weight,emoji', $content);
     }
 
-    public function testExportCsvReturnsDataRows(): void
+    public function test_export_csv_returns_data_rows(): void
     {
         $log1 = new HealthLog();
         $log1->setSystolic(120)->setDiastolic(80)->setHeartRate(72)->setWeight(180.5)->setEmoji('😀');
@@ -880,13 +883,13 @@ class HealthApiControllerTest extends WebTestCase
         self::assertStringContainsString('80', $content);
     }
 
-    public function testExportCsvFilteredByDateRange(): void
+    public function test_export_csv_filtered_by_date_range(): void
     {
-        $old = new HealthLog(new \DateTimeImmutable('2025-01-01T10:00:00Z'));
+        $old = new HealthLog(new DateTimeImmutable('2025-01-01T10:00:00Z'));
         $old->setHeartRate(70);
         $this->em->persist($old);
 
-        $new = new HealthLog(new \DateTimeImmutable('2025-06-01T14:00:00Z'));
+        $new = new HealthLog(new DateTimeImmutable('2025-06-01T14:00:00Z'));
         $new->setHeartRate(80);
         $this->em->persist($new);
 
@@ -904,7 +907,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertStringNotContainsString('70', $content);
     }
 
-    public function testExportCsvRejectsInvalidDateRange(): void
+    public function test_export_csv_rejects_invalid_date_range(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/v1/logs/export?from=2025-06-01&to=2025-01-01', [], [], [
@@ -914,7 +917,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testUpdateLogValidEmojiSucceeds(): void
+    public function test_update_log_valid_emoji_succeeds(): void
     {
         // First create a valid log
         $log = new HealthLog();
@@ -925,7 +928,7 @@ class HealthApiControllerTest extends WebTestCase
 
         $client = $this->client;
         $payload = ['emoji' => '🤩'];
-        $client->request('PUT', '/api/v1/logs/' . $id, [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$id, [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode($payload));
@@ -937,7 +940,7 @@ class HealthApiControllerTest extends WebTestCase
 
     // ── GET /api/v1/logs/{id} (#79): retrieve a single log by ID ──
 
-    public function testGetLogByIdRequiresApiKey(): void
+    public function test_get_log_by_id_requires_api_key(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -945,12 +948,12 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('GET', '/api/v1/logs/' . $log->getId());
+        $client->request('GET', '/api/v1/logs/'.$log->getId());
 
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testGetLogByIdReturnsEntry(): void
+    public function test_get_log_by_id_returns_entry(): void
     {
         $log = new HealthLog();
         $log->setSystolic(120)->setDiastolic(80)->setHeartRate(72)->setWeight(180.5)->setEmoji('😀');
@@ -958,7 +961,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('GET', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('GET', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
 
@@ -972,7 +975,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('😀', $data['emoji']);
     }
 
-    public function testGetLogByIdReturns404ForMissingId(): void
+    public function test_get_log_by_id_returns404_for_missing_id(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/v1/logs/999999', [], [], [
@@ -986,7 +989,7 @@ class HealthApiControllerTest extends WebTestCase
 
     // ── PUT /api/v1/logs/{id} (#79): update a single log by ID ──
 
-    public function testUpdateLogRequiresApiKey(): void
+    public function test_update_log_requires_api_key(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -994,14 +997,14 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['heart_rate' => 80]));
 
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testUpdateLogReturns404ForMissingId(): void
+    public function test_update_log_returns404_for_missing_id(): void
     {
         $client = $this->client;
         $client->request('PUT', '/api/v1/logs/999999', [], [], [
@@ -1012,7 +1015,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testUpdateLogInvalidJsonReturns400(): void
+    public function test_update_log_invalid_json_returns400(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1020,7 +1023,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], 'not json');
@@ -1028,7 +1031,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testUpdateLogHeartRateSucceeds(): void
+    public function test_update_log_heart_rate_succeeds(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72)->setEmoji('😀');
@@ -1036,7 +1039,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['heart_rate' => 85]));
@@ -1046,7 +1049,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(85, $data['heart_rate']);
     }
 
-    public function testUpdateLogSystolicAndDiastolicSucceeds(): void
+    public function test_update_log_systolic_and_diastolic_succeeds(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1054,7 +1057,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['systolic' => 130, 'diastolic' => 85]));
@@ -1066,7 +1069,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(72, $data['heart_rate']); // unchanged
     }
 
-    public function testUpdateLogWeightSucceeds(): void
+    public function test_update_log_weight_succeeds(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1074,7 +1077,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['weight' => 175.2]));
@@ -1084,7 +1087,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEqualsWithDelta(175.2, $data['weight'], 0.01);
     }
 
-    public function testUpdateLogTimestampSucceeds(): void
+    public function test_update_log_timestamp_succeeds(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1092,19 +1095,19 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['timestamp' => '2025-03-15T08:30:00Z']));
 
         self::assertResponseStatusCodeSame(200);
         $data = json_decode($client->getResponse()->getContent(), true);
-        $ts = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['timestamp']);
+        $ts = DateTimeImmutable::createFromFormat(DateTimeInterface::ATOM, $data['timestamp']);
         self::assertNotNull($ts);
-        self::assertEquals(new \DateTimeImmutable('2025-03-15T08:30:00Z'), $ts);
+        self::assertEquals(new DateTimeImmutable('2025-03-15T08:30:00Z'), $ts);
     }
 
-    public function testUpdateLogFutureTimestampReturns400(): void
+    public function test_update_log_future_timestamp_returns400(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1112,7 +1115,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['timestamp' => '2099-01-01T00:00:00Z']));
@@ -1122,7 +1125,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertArrayHasKey('timestamp', $data['details'] ?? []);
     }
 
-    public function testUpdateLogInvalidTimestampReturns400(): void
+    public function test_update_log_invalid_timestamp_returns400(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1130,7 +1133,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['timestamp' => 'not-a-date']));
@@ -1140,7 +1143,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertArrayHasKey('timestamp', $data['details'] ?? []);
     }
 
-    public function testUpdateLogNonNumericSystolicReturns400(): void
+    public function test_update_log_non_numeric_systolic_returns400(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1148,7 +1151,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['systolic' => 'abc']));
@@ -1158,7 +1161,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertArrayHasKey('systolic', $data['details'] ?? []);
     }
 
-    public function testUpdateLogSystolicOutOfRangeReturns400(): void
+    public function test_update_log_systolic_out_of_range_returns400(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1166,7 +1169,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['systolic' => 9999, 'diastolic' => 80]));
@@ -1176,7 +1179,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('Validation failed', $data['error'] ?? '');
     }
 
-    public function testUpdateLogClearingSystolicWithoutDiastolicReturns400(): void
+    public function test_update_log_clearing_systolic_without_diastolic_returns400(): void
     {
         $log = new HealthLog();
         $log->setSystolic(120)->setDiastolic(80)->setHeartRate(72);
@@ -1185,7 +1188,7 @@ class HealthApiControllerTest extends WebTestCase
 
         // Try to clear only systolic (set to null) while diastolic remains
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['systolic' => null]));
@@ -1195,7 +1198,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertStringContainsString('both systolic and diastolic', strtolower((string) ($data['error'] ?? '')));
     }
 
-    public function testUpdateLogClearingAllMeasurementsReturns400(): void
+    public function test_update_log_clearing_all_measurements_returns400(): void
     {
         $log = new HealthLog();
         $log->setSystolic(120)->setDiastolic(80)->setHeartRate(72)->setWeight(180.0);
@@ -1203,7 +1206,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode([
@@ -1218,7 +1221,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertStringContainsString('at least one measurement', strtolower((string) ($data['error'] ?? '')));
     }
 
-    public function testUpdateLogEmptyBodyReturns400(): void
+    public function test_update_log_empty_body_returns400(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1226,7 +1229,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], '');
@@ -1234,7 +1237,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testUpdateLogNoFieldsPreservesEntry(): void
+    public function test_update_log_no_fields_preserves_entry(): void
     {
         $log = new HealthLog();
         $log->setSystolic(120)->setDiastolic(80)->setHeartRate(72)->setWeight(180.0)->setEmoji('😀');
@@ -1243,7 +1246,7 @@ class HealthApiControllerTest extends WebTestCase
 
         // Empty JSON object — no fields to update, should just return the log as-is
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode([]));
@@ -1257,7 +1260,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals('😀', $data['emoji']);
     }
 
-    public function testUpdateLogLongEmojiReturns400(): void
+    public function test_update_log_long_emoji_returns400(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1265,7 +1268,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['emoji' => str_repeat('🎉', 11)]));
@@ -1277,7 +1280,7 @@ class HealthApiControllerTest extends WebTestCase
 
     // ── DELETE /api/v1/logs/{id} (#79): delete a single log by ID ──
 
-    public function testDeleteLogRequiresApiKey(): void
+    public function test_delete_log_requires_api_key(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1285,12 +1288,12 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('DELETE', '/api/v1/logs/' . $log->getId());
+        $client->request('DELETE', '/api/v1/logs/'.$log->getId());
 
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testDeleteLogReturns404ForMissingId(): void
+    public function test_delete_log_returns404_for_missing_id(): void
     {
         $client = $this->client;
         $client->request('DELETE', '/api/v1/logs/999999', [], [], [
@@ -1300,7 +1303,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testDeleteLogSucceedsAndReturns204(): void
+    public function test_delete_log_succeeds_and_returns204(): void
     {
         $log = new HealthLog();
         $log->setSystolic(120)->setDiastolic(80)->setHeartRate(72)->setEmoji('😀');
@@ -1309,20 +1312,20 @@ class HealthApiControllerTest extends WebTestCase
         $id = $log->getId();
 
         $client = $this->client;
-        $client->request('DELETE', '/api/v1/logs/' . $id, [], [], [
+        $client->request('DELETE', '/api/v1/logs/'.$id, [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
 
         self::assertResponseStatusCodeSame(204);
 
         // Verify the log is actually gone
-        $client->request('GET', '/api/v1/logs/' . $id, [], [], [
+        $client->request('GET', '/api/v1/logs/'.$id, [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testDeleteLogThenGetReturns404(): void
+    public function test_delete_log_then_get_returns404(): void
     {
         $log = new HealthLog();
         $log->setHeartRate(72);
@@ -1331,19 +1334,19 @@ class HealthApiControllerTest extends WebTestCase
         $id = $log->getId();
 
         $client = $this->client;
-        $client->request('DELETE', '/api/v1/logs/' . $id, [], [], [
+        $client->request('DELETE', '/api/v1/logs/'.$id, [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
         self::assertResponseStatusCodeSame(204);
 
         // Second delete should return 404
-        $client->request('DELETE', '/api/v1/logs/' . $id, [], [], [
+        $client->request('DELETE', '/api/v1/logs/'.$id, [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testDeleteLogRemovesItFromList(): void
+    public function test_delete_log_removes_it_from_list(): void
     {
         $log1 = new HealthLog();
         $log1->setHeartRate(70);
@@ -1355,7 +1358,7 @@ class HealthApiControllerTest extends WebTestCase
         $this->em->flush();
 
         $client = $this->client;
-        $client->request('DELETE', '/api/v1/logs/' . $log1->getId(), [], [], [
+        $client->request('DELETE', '/api/v1/logs/'.$log1->getId(), [], [], [
             'HTTP_X-API-KEY' => self::API_KEY,
         ]);
         self::assertResponseStatusCodeSame(204);
@@ -1374,7 +1377,7 @@ class HealthApiControllerTest extends WebTestCase
 
     private const READ_ONLY_API_KEY = 'test_read_only_api_key_67890'; // matches .env.test
 
-    public function testReadOnlyKeyCanListLogs(): void
+    public function test_read_only_key_can_list_logs(): void
     {
         $this->seedLogEntry(70);
 
@@ -1389,7 +1392,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertEquals(70, $body['data'][0]['heart_rate']);
     }
 
-    public function testReadOnlyKeyCanGetStats(): void
+    public function test_read_only_key_can_get_stats(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/v1/logs/stats', [], [], [
@@ -1399,7 +1402,7 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(200);
     }
 
-    public function testReadOnlyKeyCannotCreateLog(): void
+    public function test_read_only_key_cannot_create_log(): void
     {
         $client = $this->client;
         $client->request('POST', '/api/v1/logs', [], [], [
@@ -1412,12 +1415,12 @@ class HealthApiControllerTest extends WebTestCase
         self::assertStringContainsString('Read-only', $data['error'] ?? '');
     }
 
-    public function testReadOnlyKeyCannotUpdateLog(): void
+    public function test_read_only_key_cannot_update_log(): void
     {
         $log = $this->seedLogEntry(70);
 
         $client = $this->client;
-        $client->request('PUT', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('PUT', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::READ_ONLY_API_KEY,
             'HTTP_CONTENT_TYPE' => 'application/json',
         ], json_encode(['heart_rate' => 80]));
@@ -1425,19 +1428,19 @@ class HealthApiControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testReadOnlyKeyCannotDeleteLog(): void
+    public function test_read_only_key_cannot_delete_log(): void
     {
         $log = $this->seedLogEntry(70);
 
         $client = $this->client;
-        $client->request('DELETE', '/api/v1/logs/' . $log->getId(), [], [], [
+        $client->request('DELETE', '/api/v1/logs/'.$log->getId(), [], [], [
             'HTTP_X-API-KEY' => self::READ_ONLY_API_KEY,
         ]);
 
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testReadOnlyKeyCannotExportCsv(): void
+    public function test_read_only_key_cannot_export_csv(): void
     {
         // Export is a GET, so the read-only key SHOULD be allowed.
         // This test documents that behavior and protects it from regressions.
@@ -1452,14 +1455,13 @@ class HealthApiControllerTest extends WebTestCase
         self::assertStringContainsString('text/csv', (string) $client->getResponse()->headers->get('Content-Type'));
     }
 
-    private function seedLogEntry(int $heartRate): \App\Entity\HealthLog
+    private function seedLogEntry(int $heartRate): HealthLog
     {
-        $log = new \App\Entity\HealthLog();
+        $log = new HealthLog();
         $log->setHeartRate($heartRate);
         $this->em->persist($log);
         $this->em->flush();
 
         return $log;
     }
-
 }

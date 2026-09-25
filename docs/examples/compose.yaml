@@ -1,0 +1,60 @@
+# --- vital-pulse — deployable reference compose ---------------------------------
+#
+# Copy this next to your real secrets file and adjust. Read it before you rely
+# on it; the two things worth understanding are marked below.
+#
+# Required secrets use `${VAR:?}` rather than `${VAR:-}`. That is deliberate and
+# it is the whole point of this file (GUIDING-LIGHT §4.4): with the old
+# `${APP_SECRET:-}` form the app would happily boot with a *silently empty*
+# APP_SECRET, which is a real security problem that produces no error message
+# anywhere. `${VAR:?}` refuses to start and says which variable is missing.
+#
+#   cp docs/examples/.env.example host.env
+#   # then fill in APP_SECRET and API_KEY with real values
+#   docker compose -f docs/examples/compose.yaml --env-file host.env up -d
+
+services:
+  vital-pulse:
+    image: ${DOCKERHUB_TARGET:?set DOCKERHUB_TARGET, e.g. digitaladapt/vitalpulse}:latest
+    container_name: vital-pulse
+    ports:
+      - "${VITALPULSE_PORT:-8080}:80"
+    environment:
+      # ── required, no default on purpose ──────────────────────────────────
+      APP_SECRET: ${APP_SECRET:?APP_SECRET is required — generate one with: openssl rand -hex 32}
+      API_KEY: ${API_KEY:?API_KEY is required — generate one with: openssl rand -hex 32}
+      # ── optional ─────────────────────────────────────────────────────────
+      READ_ONLY_API_KEY: ${READ_ONLY_API_KEY:-}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:///%kernel.project_dir%/var/data/health_tracker.db}
+      DEFAULT_URI: ${DEFAULT_URI:?set DEFAULT_URI, the public base URL of this app}
+      READING_WARNINGS_ENABLED: ${READING_WARNINGS_ENABLED:-1}
+    volumes:
+      # The SQLite database, cache and logs live here. Back this up (§8.6).
+      - ./var/data:/app/var/data
+    restart: unless-stopped
+    healthcheck:
+      # Liveness only — the image's own default, restated so it is visible.
+      # Use /ready for readiness (see below).
+      test: ["CMD", "curl", "-sf", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # ── Two endpoints, two jobs (GUIDING-LIGHT §8.4) ──────────────────────────
+  #
+  #   GET /health   liveness  — process is up. No dependencies. Kills nothing.
+  #   GET /ready    readiness — database reachable. 503 when it is not.
+  #
+  # Point your orchestrator's liveness probe at /health and its readiness probe
+  # at /ready. Pointing liveness at a dependency check is how a locked SQLite
+  # file turns into an endless restart loop.
+
+  # ── Migrations are a separate one-shot run, not an entrypoint step (§8.6) ─
+  #
+  # The container entrypoint deliberately does not migrate: with more than one
+  # replica, every container would race the same migration against the same
+  # SQLite file. Run this once, before starting the app above:
+  #
+  #   docker compose -f docs/examples/compose.yaml --env-file host.env run --rm \
+  #     vital-pulse php /app/bin/console doctrine:migrations:migrate --no-interaction

@@ -2,13 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <!-- viewport-fit=cover: the dashboard is used one-handed on a phone, so
+         it must reach into the notch/home-indicator safe areas. Zoom is NOT
+         locked here (WCAG 1.4.4) — the iOS focus auto-zoom it used to
+         suppress is fixed at the source instead, by keeping every form
+         control at >=16px below (GUIDING-LIGHT §3.3a). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>VitalPulse Dashboard</title>
     <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="VitalPulse" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#1e3a5f" />
     <link rel="manifest" href="/site.webmanifest" />
     <script src="/chartjs-v4.js"></script>
@@ -16,6 +23,19 @@
     <script src="/chartjs-adapter-luxon-v1.js"></script>
     <style>
         * , *::before, *::after { box-sizing: border-box; }
+
+        /* ── Native-feel, one-time wins (GUIDING-LIGHT §3.3a) ──────────
+           touch-action removes the 300ms tap delay and the accidental
+           double-tap zoom. overscroll-behavior stops the page fighting
+           pull-to-refresh on a phone. Together they are what actually
+           makes this feel like an app — not the viewport zoom lock that
+           used to be here. */
+        html { -webkit-text-size-adjust: 100%; }
+        body { touch-action: manipulation; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }
+
+        /* Buttons and emoji toggles are tapped, not hovered: give them a
+           real 44x44 tap target (WCAG 2.5.5). */
+        .emoji-option, .emoji-filter-option, .preset-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
         body { font: 16px sans-serif; background: #f5f7fa; padding: 2rem; color: #333; margin: 0; }
         h1 { margin-bottom: 0.5rem; font-weight: bold; color: #1e3a5f; }
 
@@ -24,8 +44,8 @@
         .form-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; }
         .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
         label { font-size: 0.85rem; color: #666; font-weight: 600; }
-        input[type="number"], select, input[type="date"], input[type="datetime-local"] { padding: 0.45rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; min-width: 80px; max-width: 100%; }
-        button.btn-primary { background: #2563eb; color: white; padding: 0.5rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: background 0.2s; }
+        input[type="number"], select, input[type="date"], input[type="datetime-local"] { padding: 0.45rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: max(16px, 1rem); min-width: 80px; max-width: 100%; }
+        button.btn-primary { background: #2563eb; color: white; padding: 0.5rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-size: max(16px, 1rem); font-weight: 600; transition: background 0.2s; }
         button.btn-primary:hover { background: #1d4ed8; }
         input.auto-advance-highlight { animation: highlightFlash 0.3s ease; }
         @keyframes highlightFlash { 0% { box-shadow: 0 0 0 2px #2563eb; } 100% { box-shadow: 0 0 0 0 transparent; } }
@@ -279,5 +299,17 @@
     </div>
 
     <script src="/app.js"></script>
+    <script>
+        // Register the service worker — required for installability (§3.3b).
+        // Guarded: an insecure context or an unsupporting browser must not
+        // break the dashboard, which works perfectly well without it.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch((err) => {
+                    console.warn('Service worker registration failed:', err);
+                });
+            });
+        }
+    </script>
 </body>
 </html>

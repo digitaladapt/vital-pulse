@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Repository\HealthLogRepository;
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -18,7 +19,7 @@ class HealthLog
 
     #[ORM\Column(type: 'datetime_immutable', options: ['default' => 'CURRENT_TIMESTAMP'])]
     #[Assert\NotBlank(message: 'Timestamp must be provided or defaults to now.')]
-    private \DateTimeImmutable $timestamp;
+    private DateTimeImmutable $timestamp;
 
     #[ORM\Column(type: 'integer', nullable: true)]
     #[Assert\Type(type: 'integer', message: 'Systolic must be a number.')]
@@ -47,9 +48,9 @@ class HealthLog
     #[ORM\Column(type: 'string', length: 10)]
     private string $emoji = '😐';
 
-    public function __construct(?\DateTimeImmutable $timestamp = null)
+    public function __construct(?DateTimeImmutable $timestamp = null)
     {
-        $this->timestamp = $timestamp ?? new \DateTimeImmutable('UTC');
+        $this->timestamp = $timestamp ?? new DateTimeImmutable('UTC');
     }
 
     public function getId(): ?int
@@ -57,14 +58,15 @@ class HealthLog
         return $this->id;
     }
 
-    public function getTimestamp(): \DateTimeImmutable
+    public function getTimestamp(): DateTimeImmutable
     {
         return $this->timestamp;
     }
 
-    public function setTimestamp(\DateTimeImmutable $timestamp): self
+    public function setTimestamp(DateTimeImmutable $timestamp): self
     {
         $this->timestamp = $timestamp;
+
         return $this;
     }
 
@@ -76,6 +78,7 @@ class HealthLog
     public function setSystolic(?int $systolic): self
     {
         $this->systolic = $systolic;
+
         return $this;
     }
 
@@ -87,6 +90,7 @@ class HealthLog
     public function setDiastolic(?int $diastolic): self
     {
         $this->diastolic = $diastolic;
+
         return $this;
     }
 
@@ -98,6 +102,7 @@ class HealthLog
     public function setHeartRate(?int $heartRate): self
     {
         $this->heartRate = $heartRate;
+
         return $this;
     }
 
@@ -109,6 +114,7 @@ class HealthLog
     public function setWeight(?float $weight): self
     {
         $this->weight = $weight;
+
         return $this;
     }
 
@@ -120,7 +126,8 @@ class HealthLog
     public function setEmoji(string $emoji): self
     {
         // Allow any emoji but default to neutral if empty or invalid length
-        $this->emoji = strlen($emoji) > 0 ? $emoji : '😐';
+        $this->emoji = \strlen($emoji) > 0 ? $emoji : '😐';
+
         return $this;
     }
 

@@ -1,0 +1,133 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Method App\\Controller\\HealthApiController\:\:formatMetricStats\(\) has parameter \$stats with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Controller/HealthApiController.php
+
+		-
+			message: '#^Method App\\Controller\\HealthApiController\:\:formatMetricStats\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Controller/HealthApiController.php
+
+		-
+			message: '#^Method App\\Controller\\HealthApiController\:\:serializeAggregatedLog\(\) has parameter \$row with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Controller/HealthApiController.php
+
+		-
+			message: '#^Method App\\Controller\\HealthApiController\:\:serializeAggregatedLog\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Controller/HealthApiController.php
+
+		-
+			message: '#^Method App\\Controller\\HealthApiController\:\:serializeLog\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Controller/HealthApiController.php
+
+		-
+			message: '#^Property App\\Entity\\HealthLog\:\:\$id \(int\|null\) is never assigned int so it can be removed from the property type\.$#'
+			identifier: property.unusedType
+			count: 1
+			path: src/Entity/HealthLog.php
+
+		-
+			message: '#^Method App\\Repository\\HealthLogRepository\:\:countByDateRange\(\) has parameter \$emojis with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Repository/HealthLogRepository.php
+
+		-
+			message: '#^Method App\\Repository\\HealthLogRepository\:\:findAggregatedByDateRange\(\) has parameter \$emojis with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Repository/HealthLogRepository.php
+
+		-
+			message: '#^Method App\\Repository\\HealthLogRepository\:\:findByDateRange\(\) has parameter \$emojis with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Repository/HealthLogRepository.php
+
+		-
+			message: '#^Method App\\Repository\\HealthLogRepository\:\:findByDateRange\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Repository/HealthLogRepository.php
+
+		-
+			message: '#^Method App\\Repository\\HealthLogRepository\:\:getDateRangeBounds\(\) has parameter \$emojis with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Repository/HealthLogRepository.php
+
+		-
+			message: '#^Method App\\Repository\\HealthLogRepository\:\:getStatsForDateRange\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Repository/HealthLogRepository.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertNotNull\(\) with DateTimeImmutable\|false will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: tests/Controller/HealthApiControllerTest.php
+
+		-
+			message: '#^Class App\\Tests\\Controller\\HealthApiControllerTest has an uninitialized property \$client\. Give it default value or assign it in the constructor\.$#'
+			identifier: property.uninitialized
+			count: 1
+			path: tests/Controller/HealthApiControllerTest.php
+
+		-
+			message: '#^Class App\\Tests\\Controller\\HealthApiControllerTest has an uninitialized property \$em\. Give it default value or assign it in the constructor\.$#'
+			identifier: property.uninitialized
+			count: 1
+			path: tests/Controller/HealthApiControllerTest.php
+
+		-
+			message: '#^Method App\\Tests\\Controller\\HealthApiControllerTest\:\:frontendEmojiProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Controller/HealthApiControllerTest.php
+
+		-
+			message: '#^Class App\\Tests\\Controller\\SystemControllerTest has an uninitialized property \$client\. Give it default value or assign it in the constructor\.$#'
+			identifier: property.uninitialized
+			count: 1
+			path: tests/Controller/SystemControllerTest.php
+
+		-
+			message: '#^Class App\\Tests\\Controller\\SystemControllerTest has an uninitialized property \$em\. Give it default value or assign it in the constructor\.$#'
+			identifier: property.uninitialized
+			count: 1
+			path: tests/Controller/SystemControllerTest.php
+
+		-
+			message: '#^Call to static method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array will always evaluate to true\.$#'
+			identifier: staticMethod.alreadyNarrowedType
+			count: 2
+			path: tests/Repository/HealthLogRepositoryTest.php
+
+		-
+			message: '#^Class App\\Tests\\Repository\\HealthLogRepositoryTest has an uninitialized property \$client\. Give it default value or assign it in the constructor\.$#'
+			identifier: property.uninitialized
+			count: 1
+			path: tests/Repository/HealthLogRepositoryTest.php
+
+		-
+			message: '#^Class App\\Tests\\Repository\\HealthLogRepositoryTest has an uninitialized property \$em\. Give it default value or assign it in the constructor\.$#'
+			identifier: property.uninitialized
+			count: 1
+			path: tests/Repository/HealthLogRepositoryTest.php
+
+		-
+			message: '#^Class App\\Tests\\Repository\\HealthLogRepositoryTest has an uninitialized property \$repo\. Give it default value or assign it in the constructor\.$#'
+			identifier: property.uninitialized
+			count: 1
+			path: tests/Repository/HealthLogRepositoryTest.php

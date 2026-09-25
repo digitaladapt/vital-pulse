@@ -33,7 +33,7 @@ git clone https://github.com/digitaladapt/vital-pulse.git
 cd vital-pulse
 
 # Copy the environment template and set your API key
-cp .env.example host.env
+cp docs/examples/.env.example host.env
 # Edit host.env: set API_KEY to a strong secret
 
 # Build and run
@@ -45,7 +45,7 @@ The API and dashboard are both available at `http://localhost:8080` (or whatever
 ### Manual
 
 ```bash
-# Prerequisites: PHP 8.4+, Composer, SQLite3
+# Prerequisites: PHP 8.5+, Composer, SQLite3
 
 git clone https://github.com/digitaladapt/vital-pulse.git
 cd vital-pulse
@@ -89,6 +89,25 @@ unset, only the admin key is accepted.
 | `DELETE` | `/api/v1/logs/{id}`   | Delete a log entry                     | —                                              |
 | `GET`    | `/api/v1/logs/export` | Export logs as CSV                     | `from`, `to`, `emoji`                          |
 | `GET`    | `/api/v1/logs/stats`  | Get aggregate statistics               | `from`, `to`                                   |
+
+### Health probes
+
+Two endpoints, with deliberately different jobs (GUIDING-LIGHT §8.4):
+
+| Endpoint  | Kind      | Checks            | Use it for                                  |
+|-----------|-----------|-------------------|---------------------------------------------|
+| `/health` | liveness  | nothing           | container `HEALTHCHECK`, orchestrator liveness |
+| `/ready`  | readiness | SQLite reachable  | load-balancer / orchestrator readiness        |
+
+`/health` never touches the database, on purpose: a locked or missing SQLite file
+is not something a container restart can fix, so making it fail would put the
+container in a crash loop over a problem a restart cannot solve. `/ready` is
+where the dependency check belongs — it returns `503` when the database is
+unreachable, which takes the instance out of rotation without killing it.
+
+Both are unauthenticated so a probe needs no credentials. `GET /api/health` is
+retained as a deprecated alias for `/ready` so existing deployments do not break
+mid-upgrade; prefer `/ready` in anything new.
 
 ### POST `/api/v1/logs`
 
@@ -214,7 +233,7 @@ The `HealthLog` entity stores a single health check-in entry.
 
 ### Prerequisites
 
-- PHP 8.4+
+- PHP 8.5+
 - Composer
 - SQLite3
 
@@ -228,17 +247,17 @@ composer install
 
 ### Running Tests
 
-The project uses PHPUnit 10 with 129 tests. The test environment uses a file-based SQLite database (`var/data/test.db`).
+The project uses PHPUnit 10. Run the suite with: The test environment uses a file-based SQLite database (`var/data/test.db`).
 
 ```bash
 # Run the full test suite
-php vendor/bin/phpunit
+php vendor/bin/phpunit --configuration phpunit.dist.xml
 
 # Run with verbose output
-php vendor/bin/phpunit --testdox
+php vendor/bin/phpunit --configuration phpunit.dist.xml --testdox
 ```
 
-Test configuration is in `phpunit.xml.dist`. The test environment is defined in `.env.test`.
+Test configuration is in `phpunit.dist.xml`. The test environment is defined in `.env.test`.
 
 ### Starting the Dev Server
 
@@ -265,7 +284,7 @@ A single PHP process serves the **entire** application — the static dashboard 
 
 ### Caddy / FrankenPHP
 
-The included `Caddyfile` reverse-proxies everything to the PHP process (FrankenPHP in Docker). Static assets and API responses both come from the app container:
+The edge-proxy reference config lives at `docs/examples/Caddyfile` (it is host-side material, not a build input — GUIDING-LIGHT §4.2). It reverse-proxies everything to the PHP process (FrankenPHP in Docker). Static assets and API responses both come from the app container:
 
 ```caddyfile
 vitals.example.com {
@@ -278,7 +297,7 @@ vitals.example.com {
 The app runs in Docker using FrankenPHP. Configure environment variables via a git-ignored `host.env` (copied next to `compose.yaml`):
 
 ```bash
-cp .env.example host.env
+cp docs/examples/.env.example host.env
 # Edit host.env: set API_KEY and APP_SECRET to strong random values
 docker compose up -d
 ```

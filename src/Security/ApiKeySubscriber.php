@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Security;
 
+use Override;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,6 +20,7 @@ class ApiKeySubscriber implements EventSubscriberInterface
     ) {
     }
 
+    #[Override]
     public static function getSubscribedEvents(): array
     {
         return [KernelEvents::REQUEST => ['onKernelRequest', 0]];
@@ -34,7 +36,7 @@ class ApiKeySubscriber implements EventSubscriberInterface
         $request = $event->getRequest();
         $headerKey = trim($request->headers->get('X-API-Key') ?? '');
 
-        if ($headerKey === '') {
+        if ('' === $headerKey) {
             $this->rejectUnauthorized($event, 'Missing API key. Provide it via X-API-Key header.');
 
             return;
@@ -86,7 +88,7 @@ class ApiKeySubscriber implements EventSubscriberInterface
      */
     private function isSafeMethod(Request $request): bool
     {
-        return in_array($request->getMethod(), ['GET', 'HEAD'], true);
+        return \in_array($request->getMethod(), ['GET', 'HEAD'], true);
     }
 
     private function rejectUnauthorized(RequestEvent $event, string $message): void

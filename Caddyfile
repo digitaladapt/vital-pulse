@@ -1,8 +1,0 @@
-# --- vital-pulse ---------------------------------------------------------------
-# FrankenPHP serves the entire application (API + static dashboard) on port 80.
-# The host-level Caddy just terminates TLS and forwards.
-#_______________________________________________________________________________
-
-vitals.example.com {
-	reverse_proxy vital-pulse
-}

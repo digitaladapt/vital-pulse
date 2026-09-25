@@ -8,10 +8,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Adopted the shared **private/ci** dev-tool configs (Guiding Light): canonical
+  `.php-cs-fixer.dist.php`, `.editorconfig`, `LICENSE`, and a vendored
+  conformance checker at `.ci/`.
+- **PHPStan** at level 6 with a committed baseline (24 suppressed findings, down
+  from 144 at adoption). This is the first static analysis this project has had.
+- `SECURITY.md`, plus `docs/examples/{Caddyfile,compose.yaml,.env.example}` as
+  the documented deployment references.
+- **Service worker** (`public/sw.js`), which is the last piece needed for the
+  app to be installable. It never caches `/api/*`, so a reading list can never
+  be served stale.
+- Split health probes: `GET /health` (liveness, no dependencies) and `GET /ready`
+  (readiness, checks SQLite). See GUIDING-LIGHT §8.4.
+- `#[Override]` attributes, `default` arm on the aggregation-interval `match`,
+  and typed test properties surfaced by PHPStan.
+- Declared `$client` on `SchemaSetupTrait` so the test suites are type-visible.
 - Optional read-only API key (`READ_ONLY_API_KEY`): a separate key that
   can access `GET`/`HEAD` endpoints under `/api/v1` but is rejected on
   write methods (`POST`, `PUT`, `DELETE`). Useful for integrations (e.g.
   MCP server tools) that should never mutate data.
+
+### Changed
+- **PHP 8.5** (`composer.json` `^8.5`, `config.platform: 8.5.0`, Dockerfile on
+  the pinned `dunglas/frankenphp:1-php8.5-trixie`). Was declared `^8.4` while
+  everything else assumed otherwise.
+- Control font sizes raised to `max(16px, 1rem)` and the `user-scalable=no`
+  viewport lock **removed**. The lock was suppressing an iOS auto-zoom that was
+  really a font-size bug, and it blocked pinch-zoom on Android (WCAG 1.4.4).
+- `phpunit.xml.dist` renamed to `phpunit.dist.xml` (the portfolio convention).
+- Docker `HEALTHCHECK` now probes `/health` instead of `/api/health`.
+- `HealthApiController` injects `HealthLogRepository` directly instead of
+  resolving it from the `EntityManager`, which is what made its custom query
+  methods invisible to static analysis.
+- `docker/entrypoint.sh` no longer runs migrations — they are a separate
+  one-shot command, so multiple replicas cannot race the same SQLite migration.
+- `compose.yaml` (and `docs/examples/compose.yaml`) use `${VAR:?}` for
+  `APP_SECRET`/`API_KEY`, so a missing secret fails loudly instead of booting
+  with an empty one.
+- `.gitignore`/`.dockerignore` rewritten to the shared baselines.
+
+### Removed
+- The committed `.env`. `.env.example` and `.env.test` are the tracked files;
+  `.env` is now gitignored and excluded from the Docker build context.
+- The `getenv()`/`$_ENV` promotion hack in `public/index.php`, which existed only
+  to work around that committed `.env`.
+- `shell_exec('git describe')` from `SystemController::getVersion()` — a shell
+  invocation in a production request path. The `VERSION` file is the source of
+  truth (GUIDING-LIGHT §8.13).
+- `var/data/.gitkeep`; every path that needs `var/data` creates it.
 
 ## [1.6.0] - 2026-08-25
 

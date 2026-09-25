@@ -6,12 +6,15 @@ namespace App\Tests\Controller;
 
 use App\Tests\SchemaSetupTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Exception;
+use Override;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class SystemControllerTest extends WebTestCase
 {
     use SchemaSetupTrait;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -20,6 +23,7 @@ class SystemControllerTest extends WebTestCase
         $this->setUpSchema();
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         $this->tearDownSchema();
@@ -28,7 +32,7 @@ class SystemControllerTest extends WebTestCase
 
     // ── /api/about ───────────────────────────────────────────────
 
-    public function testAboutEndpointReturns200(): void
+    public function test_about_endpoint_returns200(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/about');
@@ -36,7 +40,7 @@ class SystemControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(200);
     }
 
-    public function testAboutEndpointReturnsApplicationName(): void
+    public function test_about_endpoint_returns_application_name(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/about');
@@ -46,7 +50,7 @@ class SystemControllerTest extends WebTestCase
         self::assertSame('vital-pulse', $data['name']);
     }
 
-    public function testAboutEndpointReturnsVersionString(): void
+    public function test_about_endpoint_returns_version_string(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/about');
@@ -58,7 +62,7 @@ class SystemControllerTest extends WebTestCase
         self::assertNotSame('', $data['version']);
     }
 
-    public function testAboutEndpointReturnsReadingWarningsEnabledFlag(): void
+    public function test_about_endpoint_returns_reading_warnings_enabled_flag(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/about');
@@ -69,7 +73,7 @@ class SystemControllerTest extends WebTestCase
         self::assertIsBool($data['reading_warnings_enabled']);
     }
 
-    public function testAboutEndpointReflectsReadingWarningsSetting(): void
+    public function test_about_endpoint_reflects_reading_warnings_setting(): void
     {
         // Construct the controller directly (like the health test below) to
         // verify the flag is passed straight through to the response.
@@ -86,7 +90,7 @@ class SystemControllerTest extends WebTestCase
         self::assertFalse($data['reading_warnings_enabled']);
     }
 
-    public function testAboutEndpointAccessibleWithoutApiKey(): void
+    public function test_about_endpoint_accessible_without_api_key(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/about');
@@ -96,7 +100,7 @@ class SystemControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(200);
     }
 
-    public function testAboutEndpointReturnsJsonContentType(): void
+    public function test_about_endpoint_returns_json_content_type(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/about');
@@ -104,7 +108,7 @@ class SystemControllerTest extends WebTestCase
         self::assertResponseHeaderSame('Content-Type', 'application/json');
     }
 
-    public function testAboutEndpointResponseHasExactlyThreeKeys(): void
+    public function test_about_endpoint_response_has_exactly_three_keys(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/about');
@@ -114,7 +118,7 @@ class SystemControllerTest extends WebTestCase
         self::assertSame(['name', 'version', 'reading_warnings_enabled'], array_keys($data));
     }
 
-    public function testAboutEndpointRouteOnlyAllowsGet(): void
+    public function test_about_endpoint_route_only_allows_get(): void
     {
         // The route is registered as GET-only. A POST falls through to the
         // catch-all asset controller which returns 404 — not a 405, but
@@ -126,9 +130,92 @@ class SystemControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    // ── /api/health ──────────────────────────────────────────────
+    // ── /health (liveness) and /ready (readiness) ────────────────
+    //
+    // GUIDING-LIGHT §8.4 splits the two probes. The distinction is the whole
+    // point, so it is asserted directly: /health must stay green while the
+    // database is broken (a restart cannot fix a locked SQLite file, so
+    // reporting unhealthy there gets the container killed for no reason),
+    // and /ready must go red at the same moment.
 
-    public function testHealthEndpointReturns200WithHealthyStatus(): void
+    public function test_liveness_returns200_without_touching_database(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/health');
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertSame('healthy', $data['status']);
+    }
+
+    public function test_liveness_returns_only_status_key(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/health');
+
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertSame(['status'], array_keys($data));
+    }
+
+    public function test_liveness_accessible_without_api_key(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/health');
+
+        self::assertResponseStatusCodeSame(200);
+    }
+
+    public function test_liveness_is_green_even_when_database_is_unavailable(): void
+    {
+        // The entity manager is mocked to throw, exactly as in the readiness
+        // test below — but liveness must not care, because it never asks.
+        $mockEm = $this->createMock(EntityManagerInterface::class);
+        $mockConnection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $mockConnection->method('executeQuery')->willThrowException(new Exception('Database is down'));
+        $mockEm->method('getConnection')->willReturn($mockConnection);
+
+        $controller = new \App\Controller\SystemController($mockEm, true);
+
+        self::assertSame(200, $controller->health()->getStatusCode());
+    }
+
+    public function test_readiness_returns200_with_ready_status(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/ready');
+
+        self::assertResponseStatusCodeSame(200);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertSame('ready', $data['status']);
+    }
+
+    public function test_readiness_returns503_when_database_is_unavailable(): void
+    {
+        $mockEm = $this->createMock(EntityManagerInterface::class);
+        $mockConnection = $this->createMock(\Doctrine\DBAL\Connection::class);
+        $mockConnection->method('executeQuery')->willThrowException(new Exception('Database is down'));
+        $mockEm->method('getConnection')->willReturn($mockConnection);
+
+        $controller = new \App\Controller\SystemController($mockEm, true);
+        $response = $controller->ready();
+
+        self::assertSame(503, $response->getStatusCode());
+        $data = json_decode($response->getContent(), true);
+        self::assertSame('unready', $data['status']);
+        self::assertSame('Database connection failed', $data['error']);
+    }
+
+    public function test_readiness_accessible_without_api_key(): void
+    {
+        $client = $this->client;
+        $client->request('GET', '/ready');
+
+        self::assertResponseStatusCodeSame(200);
+    }
+
+    // ── /api/health (deprecated alias for /ready) ────────────────
+
+    public function test_health_endpoint_returns200_with_healthy_status(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/health');
@@ -138,7 +225,7 @@ class SystemControllerTest extends WebTestCase
         self::assertSame('healthy', $data['status']);
     }
 
-    public function testHealthEndpointReturnsJsonContentType(): void
+    public function test_health_endpoint_returns_json_content_type(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/health');
@@ -146,7 +233,7 @@ class SystemControllerTest extends WebTestCase
         self::assertResponseHeaderSame('Content-Type', 'application/json');
     }
 
-    public function testHealthEndpointAccessibleWithoutApiKey(): void
+    public function test_health_endpoint_accessible_without_api_key(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/health');
@@ -155,7 +242,7 @@ class SystemControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(200);
     }
 
-    public function testHealthEndpointReturnsOnlyStatusKeyWhenHealthy(): void
+    public function test_health_endpoint_returns_only_status_key_when_healthy(): void
     {
         $client = $this->client;
         $client->request('GET', '/api/health');
@@ -165,7 +252,7 @@ class SystemControllerTest extends WebTestCase
         self::assertSame(['status'], array_keys($data));
     }
 
-    public function testHealthEndpointRouteOnlyAllowsGet(): void
+    public function test_health_endpoint_route_only_allows_get(): void
     {
         // Same as /api/about — GET-only route, POST falls through to the
         // catch-all asset controller and returns 404.
@@ -175,19 +262,25 @@ class SystemControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testHealthEndpointReturns503WhenDatabaseIsUnavailable(): void
+    public function test_deprecated_api_health_alias_still_reports_database_failure(): void
     {
-        // Test the controller directly with a mocked EntityManager that
-        // throws on query execution, simulating a corrupted/locked/missing
-        // database. We can't override the container's EM because it's
+        // /api/health is retained as a deprecated alias so deployments whose
+        // HEALTHCHECK still points at it do not break mid-upgrade. It keeps the
+        // dependency check, which is what it always did — the new liveness
+        // endpoint that deliberately does NOT touch the database is /health,
+        // and it is tested above.
+        //
+        // The controller is constructed directly with a mocked EntityManager
+        // that throws on query execution, simulating a corrupted/locked/missing
+        // database. The container's own EM cannot be overridden because it is
         // already initialized from schema setup.
         $mockEm = $this->createMock(EntityManagerInterface::class);
         $mockConnection = $this->createMock(\Doctrine\DBAL\Connection::class);
-        $mockConnection->method('executeQuery')->willThrowException(new \Exception('Database is down'));
+        $mockConnection->method('executeQuery')->willThrowException(new Exception('Database is down'));
         $mockEm->method('getConnection')->willReturn($mockConnection);
 
         $controller = new \App\Controller\SystemController($mockEm, true);
-        $response = $controller->health();
+        $response = $controller->healthDeprecated();
 
         self::assertSame(503, $response->getStatusCode());
         $data = json_decode($response->getContent(), true);

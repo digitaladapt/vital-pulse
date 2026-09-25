@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Exception;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -31,14 +32,61 @@ class SystemController extends AbstractController
         ]);
     }
 
-    #[Route('/api/health', name: 'api_health', methods: ['GET'])]
+    /**
+     * Liveness probe (GUIDING-LIGHT §8.4).
+     *
+     * Deliberately does NOT touch the database. It answers exactly one
+     * question — "is this process up?" — and nothing else.
+     *
+     * The previous arrangement had a single health endpoint that ran a DB
+     * query, which inverts the failure mode: a locked or missing SQLite file
+     * made the container report unhealthy and the orchestrator dutifully
+     * killed and restarted it, over and over, for a problem a restart cannot
+     * fix. Dependency trouble is a readiness concern, not a liveness one.
+     */
+    #[Route('/health', name: 'health', methods: ['GET'])]
     public function health(): JsonResponse
     {
-        // Verify database connectivity — the healthcheck is meaningless if the DB
-        // is corrupted, missing, or locked.
+        return new JsonResponse([
+            'status' => 'healthy',
+        ]);
+    }
+
+    /**
+     * Readiness probe (GUIDING-LIGHT §8.4).
+     *
+     * This is where the dependency check belongs: dependencies reachable
+     * (here, SQLite), so may query the database. A failing readiness probe
+     * takes the instance out of rotation; it does not get it killed.
+     */
+    #[Route('/ready', name: 'ready', methods: ['GET'])]
+    public function ready(): JsonResponse
+    {
         try {
             $this->entityManager->getConnection()->executeQuery('SELECT 1')->fetchOne();
-        } catch (\Exception) {
+        } catch (Exception) {
+            return new JsonResponse([
+                'status' => 'unready',
+                'error' => 'Database connection failed',
+            ], 503);
+        }
+
+        return new JsonResponse([
+            'status' => 'ready',
+        ]);
+    }
+
+    /**
+     * @deprecated Use /ready. Kept so existing deployments whose HEALTHCHECK
+     *             still points here do not break mid-upgrade; it now behaves
+     *             as a readiness probe. Remove once nothing references it.
+     */
+    #[Route('/api/health', name: 'api_health', methods: ['GET'])]
+    public function healthDeprecated(): JsonResponse
+    {
+        try {
+            $this->entityManager->getConnection()->executeQuery('SELECT 1')->fetchOne();
+        } catch (Exception) {
             return new JsonResponse([
                 'status' => 'unhealthy',
                 'error' => 'Database connection failed',
@@ -54,31 +102,25 @@ class SystemController extends AbstractController
      * Determine the application version.
      *
      * Priority:
-     *   1. VERSION file (baked into Docker image at build time)
-     *   2. git describe (works in dev checkout where .git is available)
-     *   3. Hardcoded fallback constant
+     *   1. VERSION file (baked into the Docker image at build time)
+     *   2. Hardcoded fallback constant
+     *
+     * The old git-describe path used `shell_exec()` on every /api/about
+     * request. That is a shell invocation in a production request path to
+     * produce a version string the image already knows — both a performance
+     * problem and a hardening one, since it hands a subprocess to the request
+     * lifecycle for no reason (GUIDING-LIGHT §8.13). The build arg writes the
+     * VERSION file instead, which is the source of truth.
      */
     private function getVersion(): string
     {
-        $versionFile = $this->getParameter('kernel.project_dir') . '/VERSION';
+        $versionFile = $this->getParameter('kernel.project_dir').'/VERSION';
         if (file_exists($versionFile)) {
             $version = trim(file_get_contents($versionFile));
-            if ($version !== '' && $version !== 'dev') {
-                // Strip leading "v" if present (consistent with git describe path)
+            if ('' !== $version && 'dev' !== $version) {
+                // Strip leading "v" if present, so the reported version is bare SemVer.
                 return str_starts_with($version, 'v') ? substr($version, 1) : $version;
             }
-        }
-
-        $tag = @shell_exec('git describe --tags --abbrev=0 2>/dev/null');
-
-        if ($tag !== null && $tag !== '') {
-            $tag = trim($tag);
-            // Strip leading "v" if present
-            if (str_starts_with($tag, 'v')) {
-                $tag = substr($tag, 1);
-            }
-
-            return $tag;
         }
 
         return self::FALLBACK_VERSION;

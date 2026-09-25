@@ -5,30 +5,31 @@ declare(strict_types=1);
 namespace App\Tests\Entity;
 
 use App\Entity\HealthLog;
+use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
 class HealthLogTest extends TestCase
 {
-    public function testConstructorDefaultsTimestampToNow(): void
+    public function test_constructor_defaults_timestamp_to_now(): void
     {
         $log = new HealthLog();
-        self::assertInstanceOf(\DateTimeImmutable::class, $log->getTimestamp());
+        self::assertInstanceOf(DateTimeImmutable::class, $log->getTimestamp());
     }
 
-    public function testConstructorAcceptsCustomTimestamp(): void
+    public function test_constructor_accepts_custom_timestamp(): void
     {
-        $ts = new \DateTimeImmutable('2025-01-01T12:00:00Z');
+        $ts = new DateTimeImmutable('2025-01-01T12:00:00Z');
         $log = new HealthLog($ts);
         self::assertSame($ts, $log->getTimestamp());
     }
 
-    public function testEmojiDefaultsToNeutral(): void
+    public function test_emoji_defaults_to_neutral(): void
     {
         $log = new HealthLog();
         self::assertEquals('😐', $log->getEmoji());
     }
 
-    public function testSetAndGetMeasurements(): void
+    public function test_set_and_get_measurements(): void
     {
         $log = new HealthLog();
         $log->setSystolic(120);
@@ -42,7 +43,7 @@ class HealthLogTest extends TestCase
         self::assertEqualsWithDelta(185.4, $log->getWeight(), 0.01);
     }
 
-    public function testHasMeasurementsReturnsTrueWhenAnyValueSet(): void
+    public function test_has_measurements_returns_true_when_any_value_set(): void
     {
         $log = new HealthLog();
         $log->setSystolic(120);
@@ -57,34 +58,34 @@ class HealthLogTest extends TestCase
         self::assertTrue($log3->hasMeasurements());
     }
 
-    public function testHasMeasurementsReturnsFalseWhenNoValuesSet(): void
+    public function test_has_measurements_returns_false_when_no_values_set(): void
     {
         $log = new HealthLog();
         self::assertFalse($log->hasMeasurements());
     }
 
-    public function testEmojiFallbackToNeutralOnEmptyString(): void
+    public function test_emoji_fallback_to_neutral_on_empty_string(): void
     {
         $log = new HealthLog();
         $log->setEmoji('');
         self::assertEquals('😐', $log->getEmoji());
     }
 
-    public function testIdIsNullBeforePersisting(): void
+    public function test_id_is_null_before_persisting(): void
     {
         $log = new HealthLog();
         self::assertNull($log->getId());
     }
 
-    public function testTimestampSetter(): void
+    public function test_timestamp_setter(): void
     {
         $log = new HealthLog();
-        $newTs = new \DateTimeImmutable('2025-06-15T09:30:00Z');
+        $newTs = new DateTimeImmutable('2025-06-15T09:30:00Z');
         $log->setTimestamp($newTs);
         self::assertEquals($newTs, $log->getTimestamp());
     }
 
-    public function testEmojiCanBeSetToCustomValue(): void
+    public function test_emoji_can_be_set_to_custom_value(): void
     {
         $log = new HealthLog();
         $log->setEmoji('😀');

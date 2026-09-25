@@ -1,0 +1,21 @@
+# --- vital-pulse — edge proxy reference config -------------------------------
+#
+# This is the HOST-SIDE reverse proxy, not the app config. The config that ships
+# inside the image is `docker/Caddyfile` (GUIDING-LIGHT §4.2/§4.3 — same
+# filename, two different jobs).
+#
+# FrankenPHP serves the entire application (API + dashboard) on port 80 inside
+# the container. This just terminates TLS and forwards to it, and it is the
+# place to add `forward_auth` if you want to put vital-pulse behind preauth.
+#_______________________________________________________________________________
+
+vitals.example.com {
+	reverse_proxy vital-pulse:80
+
+	# Optional: gate the whole app behind the preauth auth gateway.
+	# Uncomment and adjust if you run one (see preauth's docs/examples/).
+	# forward_auth preauth:80 {
+	# 	uri /api/verify
+	# 	copy_headers Remote-User Remote-Groups
+	# }
+}

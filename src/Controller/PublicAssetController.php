@@ -30,12 +30,12 @@ class PublicAssetController
         }
 
         // Explicitly block PHP files — they must go through the front controller
-        if (pathinfo($path, PATHINFO_EXTENSION) === 'php') {
+        if ('php' === pathinfo($path, \PATHINFO_EXTENSION)) {
             return new Response('Not found', 404);
         }
 
-        $publicPath = dirname(__DIR__, 2) . '/public';
-        $fullPath   = $publicPath . '/' . $path;
+        $publicPath = \dirname(__DIR__, 2).'/public';
+        $fullPath = $publicPath.'/'.$path;
 
         // File must exist on disk
         if (!file_exists($fullPath)) {
@@ -44,29 +44,29 @@ class PublicAssetController
 
         // Resolve symlinks and verify the resolved path is still inside public/
         $realPath = realpath($fullPath);
-        if ($realPath === false || !str_starts_with($realPath, $publicPath . '/')) {
+        if (false === $realPath || !str_starts_with($realPath, $publicPath.'/')) {
             return new Response('Not found', 404);
         }
 
         // Map extensions to MIME types
-        $ext   = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $ext = strtolower(pathinfo($path, \PATHINFO_EXTENSION));
         $mimes = [
-            'html'  => 'text/html',
-            'css'   => 'text/css',
-            'js'    => 'application/javascript',
-            'json'  => 'application/json',
-            'png'   => 'image/png',
-            'jpg'   => 'image/jpeg',
-            'jpeg'  => 'image/jpeg',
-            'gif'   => 'image/gif',
-            'svg'   => 'image/svg+xml',
-            'ico'   => 'image/x-icon',
-            'webp'  => 'image/webp',
-            'woff'  => 'font/woff',
+            'html' => 'text/html',
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'json' => 'application/json',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
+            'webp' => 'image/webp',
+            'woff' => 'font/woff',
             'woff2' => 'font/woff2',
-            'ttf'   => 'font/ttf',
-            'otf'   => 'font/otf',
-            'eot'   => 'application/vnd.ms-fontobject',
+            'ttf' => 'font/ttf',
+            'otf' => 'font/otf',
+            'eot' => 'application/vnd.ms-fontobject',
             'manifest' => 'text/cache-manifest',
             'webmanifest' => 'application/manifest+json',
         ];

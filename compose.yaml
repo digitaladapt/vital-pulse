@@ -9,12 +9,28 @@ services:
     ports:
       - "${VITALPULSE_PORT:-8080}:80"
     environment:
-      APP_SECRET: ${APP_SECRET:-}
-      DATABASE_URL: "sqlite:///%kernel.project_dir%/var/data/health_tracker.db"
-      API_KEY: ${API_KEY:-change-me}
+      # `${VAR:?}` rather than `${VAR:-}` on the two secrets: an empty
+      # APP_SECRET or API_KEY is a silent security failure, not a
+      # convenience, and the app should refuse to start rather than come up
+      # without them (GUIDING-LIGHT §4.4).
+      APP_SECRET: ${APP_SECRET:?APP_SECRET is required — generate one with: openssl rand -hex 32}
+      API_KEY: ${API_KEY:?API_KEY is required — generate one with: openssl rand -hex 32}
       READ_ONLY_API_KEY: ${READ_ONLY_API_KEY:-}
-      READING_WARNINGS_ENABLED: ${READING_WARNINGS_ENABLED:-1}
+      DATABASE_URL: "sqlite:///%kernel.project_dir%/var/data/health_tracker.db"
       DEFAULT_URI: ${DEFAULT_URI:-http://localhost}
+      READING_WARNINGS_ENABLED: ${READING_WARNINGS_ENABLED:-1}
     restart: unless-stopped
     volumes:
+      # SQLite database, cache and logs. Back this up — it is all the state.
       - ./var/data:/app/var/data
+    # Health probes (GUIDING-LIGHT §8.4):
+    #   /health — liveness, no dependencies, what the image probes by default.
+    #   /ready  — readiness, checks the database; 503 when it is unreachable.
+    # A compose `healthcheck` maps to liveness semantics, so it uses /health.
+    # Point a load balancer or orchestrator readiness probe at /ready.
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

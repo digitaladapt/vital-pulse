@@ -8,7 +8,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class PublicAssetControllerTest extends WebTestCase
 {
-    public function testGetHomepageServesIndexHtml(): void
+    public function test_get_homepage_serves_index_html(): void
     {
         $client = static::createClient();
         $client->request('GET', '/');
@@ -19,7 +19,7 @@ class PublicAssetControllerTest extends WebTestCase
         self::assertStringStartsWith('text/html', $client->getResponse()->headers->get('Content-Type'));
     }
 
-    public function testGetAssetServesJsFile(): void
+    public function test_get_asset_serves_js_file(): void
     {
         $client = static::createClient();
         $client->request('GET', '/app.js');
@@ -28,7 +28,7 @@ class PublicAssetControllerTest extends WebTestCase
         self::assertEquals('application/javascript', $client->getResponse()->headers->get('Content-Type'));
     }
 
-    public function testGetAssetServesSvgFile(): void
+    public function test_get_asset_serves_svg_file(): void
     {
         $client = static::createClient();
         $client->request('GET', '/favicon.svg');
@@ -37,7 +37,7 @@ class PublicAssetControllerTest extends WebTestCase
         self::assertEquals('image/svg+xml', $client->getResponse()->headers->get('Content-Type'));
     }
 
-    public function testGetPhpFileReturns404(): void
+    public function test_get_php_file_returns404(): void
     {
         $client = static::createClient();
         $client->request('GET', '/index.php');
@@ -46,7 +46,7 @@ class PublicAssetControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testGetNonExistentAssetReturns404(): void
+    public function test_get_non_existent_asset_returns404(): void
     {
         $client = static::createClient();
         $client->request('GET', '/does-not-exist.txt');
@@ -54,7 +54,7 @@ class PublicAssetControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testDirectoryTraversalBlocked(): void
+    public function test_directory_traversal_blocked(): void
     {
         $client = static::createClient();
         $client->request('GET', '/../config/services.yaml');

@@ -7,6 +7,9 @@ namespace App\Tests\Repository;
 use App\Entity\HealthLog;
 use App\Repository\HealthLogRepository;
 use App\Tests\SchemaSetupTrait;
+use DateTimeImmutable;
+use DateTimeInterface;
+use Override;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 class HealthLogRepositoryTest extends KernelTestCase
@@ -15,15 +18,20 @@ class HealthLogRepositoryTest extends KernelTestCase
 
     private HealthLogRepository $repo;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
         self::bootKernel(['environment' => 'test']);
 
         $this->setUpSchema();
-        $this->repo = $this->em->getRepository(HealthLog::class);
+        // Resolved through the container, not $this->em->getRepository(), so
+        // the property gets the concrete type and the custom methods on
+        // HealthLogRepository are visible to static analysis.
+        $this->repo = static::getContainer()->get(HealthLogRepository::class);
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         $this->tearDownSchema();
@@ -33,23 +41,23 @@ class HealthLogRepositoryTest extends KernelTestCase
         }
     }
 
-    public function testFindByDateRangeReturnsEmptyWhenNoData(): void
+    public function test_find_by_date_range_returns_empty_when_no_data(): void
     {
         $result = $this->repo->findByDateRange(null, null);
         self::assertIsArray($result);
         self::assertCount(0, $result);
     }
 
-    public function testFindByDateRangeRespectsFromAndTo(): void
+    public function test_find_by_date_range_respects_from_and_to(): void
     {
         // Insert three logs spanning a range
-        $j = new HealthLog(new \DateTimeImmutable('2025-01-05T12:00:00Z'));
+        $j = new HealthLog(new DateTimeImmutable('2025-01-05T12:00:00Z'));
         $j->setHeartRate(70);
 
-        $mid = new HealthLog(new \DateTimeImmutable('2025-03-15T14:00:00Z'));
+        $mid = new HealthLog(new DateTimeImmutable('2025-03-15T14:00:00Z'));
         $mid->setSystolic(120)->setDiastolic(80);
 
-        $july = new HealthLog(new \DateTimeImmutable('2025-07-20T09:00:00Z'));
+        $july = new HealthLog(new DateTimeImmutable('2025-07-20T09:00:00Z'));
         $july->setWeight(180.0);
 
         $this->em->persist($j);
@@ -58,15 +66,15 @@ class HealthLogRepositoryTest extends KernelTestCase
         $this->em->flush();
 
         // Query only Q2 (Feb–Apr)
-        $from = new \DateTimeImmutable('2025-02-01T00:00:00Z');
-        $to = new \DateTimeImmutable('2025-04-30T23:59:59Z');
+        $from = new DateTimeImmutable('2025-02-01T00:00:00Z');
+        $to = new DateTimeImmutable('2025-04-30T23:59:59Z');
 
         $result = $this->repo->findByDateRange($from, $to);
         self::assertCount(1, $result);
         self::assertEquals($mid->getId(), current($result)->getId());
     }
 
-    public function testFindByDateRangeFiltersByEmoji(): void
+    public function test_find_by_date_range_filters_by_emoji(): void
     {
         $a = new HealthLog();
         $a->setHeartRate(70)->setEmoji('😀');
@@ -90,12 +98,12 @@ class HealthLogRepositoryTest extends KernelTestCase
         }
     }
 
-    public function testFindByDateRangeReturnsDescendingOrder(): void
+    public function test_find_by_date_range_returns_descending_order(): void
     {
-        $old = new HealthLog(new \DateTimeImmutable('2025-01-01T00:00:00Z'));
+        $old = new HealthLog(new DateTimeImmutable('2025-01-01T00:00:00Z'));
         $old->setHeartRate(60);
 
-        $newer = new HealthLog(new \DateTimeImmutable('2025-06-01T00:00:00Z'));
+        $newer = new HealthLog(new DateTimeImmutable('2025-06-01T00:00:00Z'));
         $newer->setHeartRate(80);
 
         $this->em->persist($old);
@@ -104,24 +112,24 @@ class HealthLogRepositoryTest extends KernelTestCase
 
         $result = $this->repo->findByDateRange(null, null);
         self::assertCount(2, $result);
-        self::assertEquals('2025-06-01T00:00:00+00:00', $result[0]->getTimestamp()->format(\DateTimeInterface::ATOM));
+        self::assertEquals('2025-06-01T00:00:00+00:00', $result[0]->getTimestamp()->format(DateTimeInterface::ATOM));
     }
 
-    public function testGetStatsForDateRangeReturnsAggregates(): void
+    public function test_get_stats_for_date_range_returns_aggregates(): void
     {
         // Insert a few logs with known values
-        $l1 = new HealthLog(new \DateTimeImmutable('2025-04-01T00:00:00Z'));
+        $l1 = new HealthLog(new DateTimeImmutable('2025-04-01T00:00:00Z'));
         $l1->setSystolic(120)->setDiastolic(80)->setHeartRate(70);
 
-        $l2 = new HealthLog(new \DateTimeImmutable('2025-04-15T00:00:00Z'));
+        $l2 = new HealthLog(new DateTimeImmutable('2025-04-15T00:00:00Z'));
         $l2->setSystolic(130)->setDiastolic(85)->setHeartRate(90);
 
         $this->em->persist($l1);
         $this->em->persist($l2);
         $this->em->flush();
 
-        $from = new \DateTimeImmutable('2025-04-01T00:00:00Z');
-        $to = new \DateTimeImmutable('2025-04-30T23:59:59Z');
+        $from = new DateTimeImmutable('2025-04-01T00:00:00Z');
+        $to = new DateTimeImmutable('2025-04-30T23:59:59Z');
 
         $stats = $this->repo->getStatsForDateRange($from, $to);
 
@@ -136,10 +144,10 @@ class HealthLogRepositoryTest extends KernelTestCase
         self::assertEquals(70, (int) $stats['minHeartRate']);
     }
 
-    public function testGetStatsForDateRangeReturnsEmptyWhenNoData(): void
+    public function test_get_stats_for_date_range_returns_empty_when_no_data(): void
     {
-        $from = new \DateTimeImmutable('2099-01-01T00:00:00Z');
-        $to = new \DateTimeImmutable('2099-12-31T23:59:59Z');
+        $from = new DateTimeImmutable('2099-01-01T00:00:00Z');
+        $to = new DateTimeImmutable('2099-12-31T23:59:59Z');
 
         $stats = $this->repo->getStatsForDateRange($from, $to);
         self::assertIsArray($stats);

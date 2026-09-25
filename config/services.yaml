@@ -1,4 +1,24 @@
 parameters:
+    # ── Build-time fallbacks (GUIDING-LIGHT §8.12) ──────────────────────────
+    # Not secrets, and not runtime defaults to *rely* on — they exist so that
+    # `composer run-script post-install-cmd` (cache:clear) can compile the prod
+    # container during `docker build`.
+    #
+    # The build has no environment to resolve from: `.env` is deliberately
+    # excluded from the build context (§6.1 — it must never reach a layer), so
+    # dotenv has nothing to read, and any `resolve:` lookup with no variable and
+    # no declared fallback aborts the build with
+    # `Environment variable not found: "DATABASE_URL"`.
+    #
+    # Exactly these two are needed at compile time. APP_SECRET and API_KEY
+    # deliberately get NO fallback: neither is resolved while compiling, and a
+    # placeholder secret is how a real one gets silently shadowed at runtime.
+    #
+    # A value injected at runtime always wins over these — this is a default,
+    # not an override, and that ordering is what makes the image safe to ship.
+    env(DATABASE_URL): 'sqlite:///%kernel.project_dir%/var/data/health_tracker.db'
+    env(DEFAULT_URI): 'http://localhost'
+
     env(READ_ONLY_API_KEY): ''
 
     app.api_key: '%env(resolve:API_KEY)%'

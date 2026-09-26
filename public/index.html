@@ -130,34 +130,6 @@
         /* Touch targets — ensure minimum 44px for accessibility */
         .emoji-option, .emoji-filter-option { min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; }
 
-        /* Warning banner */
-        .warning-banner {
-            background: #fef3c7;
-            border: 1px solid #f59e0b;
-            color: #92400e;
-            padding: 0.6rem 1rem;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        .warning-banner.hidden { display: none; }
-        .warning-banner .warning-icon { font-size: 1.2rem; flex-shrink: 0; }
-        .warning-banner .warning-text { flex: 1; line-height: 1.4; }
-        .warning-banner .dismiss-btn {
-            background: none;
-            border: 1px solid #d97706;
-            color: #92400e;
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            white-space: nowrap;
-        }
-        .warning-banner .dismiss-btn:hover { background: #fde68a; }
-
         /* Reading warnings toggle */
         .checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.9rem; color: #4b5563; cursor: pointer; }
         </style>
@@ -196,19 +168,7 @@
                 <label>Mood</label>
                 <div class="emoji-select" id="mood-selector"></div>
             </div>
-            <div class="form-group">
-                <label for="reading-warnings-toggle">Reading Warnings</label>
-                <label style="display:flex;align-items:center;gap:0.5rem;font-weight:500;font-size:0.9rem;color:#4b5563;cursor:pointer;">
-                    <input type="checkbox" id="reading-warnings-toggle" checked>
-                    <span>Show high/normal reading hints</span>
-                </label>
-            </div>
             <button class="btn-primary" type="button" onclick="submitLog()">Submit Log</button>
-        <div class="warning-banner hidden" id="reading-warning">
-            <span class="warning-icon">⚠️</span>
-            <span class="warning-text" id="warning-message"></span>
-            <button class="dismiss-btn" onclick="dismissWarning()">OK, save anyway</button>
-        </div>
             <span id="status"></span>
         </div>
     </div>

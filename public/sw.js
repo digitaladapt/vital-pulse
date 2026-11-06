@@ -27,12 +27,14 @@
 //   flush on an iPhone. When that work lands it flushes on `online`,
 //   `visibilitychange` and a foreground retry loop.
 
-const CACHE_NAME = 'vitalpulse-shell-v1';
+const CACHE_NAME = 'vitalpulse-shell-v2';
 
 // The static shell. Paths are absolute because the app is served from the
-// origin root by PublicAssetController.
+// origin root: the document by HomeController, everything else straight from
+// public/ by the web server.
 const SHELL_ASSETS = [
     '/',
+    '/app.css',
     '/app.js',
     '/chartjs-v4.js',
     '/luxon-v3.js',

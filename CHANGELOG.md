@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Twig** for the dashboard: `templates/base.html.twig` + `templates/dashboard/index.html.twig`,
+  rendered by a new `HomeController`. The page's inline `<style>` block moved to a
+  static `public/app.css`, and the service-worker registration moved into
+  `public/app.js`. Service-worker shell cache bumped to `vitalpulse-shell-v2`
+  (adds `/app.css`).
+- `App\Service\AppVersion` — the version-resolution logic (VERSION file with
+  SemVer normalization) extracted from `SystemController` so `/api/about` and the
+  dashboard footer share one source of truth.
+- Dashboard footer showing the running version (omitted when unknown).
 - Adopted the shared **private/ci** dev-tool configs (Guiding Light): canonical
   `.php-cs-fixer.dist.php`, `.editorconfig`, `LICENSE`, and a vendored
   conformance checker at `.ci/`.
@@ -29,6 +38,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   MCP server tools) that should never mutate data.
 
 ### Changed
+- **`PublicAssetController` removed.** The dashboard is now a Twig template
+  rendered at `/` by `HomeController`, and static files in `public/` are served
+  by the web server the normal way (Caddy's file server in the image, PHP's
+  built-in server in dev) instead of being streamed through a PHP catch-all
+  route. Unknown paths now get Symfony's ordinary 404, and a `POST` to a
+  GET-only route returns a proper 405 instead of an anonymous 404.
+- **Version baked into the Docker image correctly.** `docker-bake.hcl` now
+  passes `APP_VERSION` to the Dockerfile (CI's `VERSION` on tag pushes,
+  `develop` on main pushes), so `/api/about` reports the real release version
+  instead of `unknown`.
 - **PHP 8.5** (`composer.json` `^8.5`, `config.platform: 8.5.0`, Dockerfile on
   the pinned `dunglas/frankenphp:1-php8.5-trixie`). Was declared `^8.4` while
   everything else assumed otherwise.

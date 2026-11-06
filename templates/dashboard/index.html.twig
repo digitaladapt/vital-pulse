@@ -1,0 +1,140 @@
+{% extends 'base.html.twig' %}
+
+{# The dashboard — the app's only page. Rendered by HomeController from the
+ # Twig template; static files (app.css, app.js, the vendored chart libraries)
+ # live in public/ and are served directly by the web server. #}
+{% block body %}
+    <h1>❤️ VitalPulse Health Tracker</h1>
+
+    <!-- Log Entry Form -->
+    <div class="form-section">
+        <label style="font-size:1rem;color:#374151;margin-bottom:0.8rem;display:block;">Log New Reading</label>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sys">Systolic (mmHg)</label>
+                <input type="number" id="sys" inputmode="numeric" placeholder="120">
+            </div>
+            <div class="form-group">
+                <label for="dia">Diastolic (mmHg)</label>
+                <input type="number" id="dia" inputmode="numeric" placeholder="80">
+            </div>
+            <div class="form-group">
+                <label for="hr-input">Heart Rate</label>
+                <input type="number" id="hr-input" inputmode="numeric" placeholder="72">
+            </div>
+            <div class="form-group">
+                <label for="wt-input">Weight (lbs)</label>
+                <input type="number" id="wt-input" step="0.1" inputmode="decimal" placeholder="180">
+            </div>
+            <div class="form-group">
+                <label for="reading-datetime">Date/Time (optional)</label>
+                <input type="datetime-local" id="reading-datetime">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Mood</label>
+                <div class="emoji-select" id="mood-selector"></div>
+            </div>
+            <button class="btn-primary" type="button" onclick="submitLog()">Submit Log</button>
+            <span id="status"></span>
+        </div>
+    </div>
+
+    <!-- Date Range Presets -->
+    <div class="preset-bar">
+        <button class="preset-btn" data-preset="7" onclick="applyDatePreset(7)">7 Days</button>
+        <button class="preset-btn" data-preset="30" onclick="applyDatePreset(30)">30 Days</button>
+        <button class="preset-btn" data-preset="90" onclick="applyDatePreset(90)">90 Days</button>
+        <button class="preset-btn" data-preset="365" onclick="applyDatePreset(365)">1 Year</button>
+        <button class="preset-btn" data-preset="all" onclick="applyDatePreset('all')">All Time</button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <div class="form-group">
+            <label for="filter-from">From</label>
+            <input type="date" id="filter-from">
+        </div>
+        <div class="form-group">
+            <label for="filter-to">To</label>
+            <input type="date" id="filter-to">
+        </div>
+        <div class="form-group">
+            <label for="filter-emoji">Emoji Filter (click to toggle)</label>
+            <div class="emoji-filter-container" id="filter-emoji"></div>
+        </div>
+        <button class="btn-primary" style="align-self:flex-end;" onclick="renderCharts()">Apply Filters</button>
+        <button class="btn-primary" style="align-self:flex-end;background:#059669;" onclick="exportCsv()">Export CSV</button>
+    </div>
+
+    <!-- Aggregation notice (shown when data is aggregated for chart display) -->
+    <div id="aggregation-notice" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:0.5rem 1rem;margin-bottom:1rem;font-size:0.82rem;color:#92400e;">
+        📊 Large dataset detected — showing averages grouped by <strong id="agg-interval">day</strong> for chart readability (<span id="agg-total">0</span> total records).
+    </div>
+
+    <!-- Latest Reading Card -->
+    <div class="latest-reading" id="latest-reading">
+        <span class="lr-empty">No readings yet. Submit your first log above!</span>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar" id="stats-bar">
+        <div class="stat-item">
+            <div class="stat-label">Total Entries</div>
+            <div class="stat-avg" id="total-count">-</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Avg Systolic</div>
+            <div class="stat-avg" id="avg-sys">-</div>
+            <div class="stat-range" id="range-sys"></div>
+            <div class="stat-trend" id="trend-sys"></div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Avg Diastolic</div>
+            <div class="stat-avg" id="avg-dia">-</div>
+            <div class="stat-range" id="range-dia"></div>
+            <div class="stat-trend" id="trend-dia"></div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Avg Heart Rate</div>
+            <div class="stat-avg" id="avg-hr">-</div>
+            <div class="stat-range" id="range-hr"></div>
+            <div class="stat-trend" id="trend-hr"></div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Avg Weight (lbs)</div>
+            <div class="stat-avg" id="avg-wt">-</div>
+            <div class="stat-range" id="range-wt"></div>
+            <div class="stat-trend" id="trend-wt"></div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid">
+        <div class="chart-card">
+            <div class="chart-title">Blood Pressure (mmHg) <small style="color:#9ca3af;font-weight:400;">Red=Systolic · Blue=Diastolic</small></div>
+            <canvas id="bp"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Heart Rate (bpm)</div>
+            <canvas id="hr"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Weight (lbs)</div>
+            <canvas id="wt"></canvas>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        VitalPulse{% if app_version != 'unknown' %} v{{ app_version }}{% endif %}
+    </footer>
+{% endblock %}
+
+{% block javascripts %}
+    <script src="/chartjs-v4.js"></script>
+    <script src="/luxon-v3.js"></script>
+    <script src="/chartjs-adapter-luxon-v1.js"></script>
+    <script src="/app.js"></script>
+{% endblock %}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Service\AppVersion;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -13,12 +14,11 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class SystemController extends AbstractController
 {
-    private const FALLBACK_VERSION = 'unknown';
-
     public function __construct(
         private EntityManagerInterface $entityManager,
         #[Autowire('%app.reading_warnings_enabled%')]
         private bool $readingWarningsEnabled,
+        private readonly AppVersion $appVersion,
     ) {
     }
 
@@ -27,7 +27,7 @@ class SystemController extends AbstractController
     {
         return new JsonResponse([
             'name' => 'vital-pulse',
-            'version' => $this->getVersion(),
+            'version' => $this->appVersion->getVersion(),
             'reading_warnings_enabled' => $this->readingWarningsEnabled,
         ]);
     }
@@ -96,33 +96,5 @@ class SystemController extends AbstractController
         return new JsonResponse([
             'status' => 'healthy',
         ]);
-    }
-
-    /**
-     * Determine the application version.
-     *
-     * Priority:
-     *   1. VERSION file (baked into the Docker image at build time)
-     *   2. Hardcoded fallback constant
-     *
-     * The old git-describe path used `shell_exec()` on every /api/about
-     * request. That is a shell invocation in a production request path to
-     * produce a version string the image already knows — both a performance
-     * problem and a hardening one, since it hands a subprocess to the request
-     * lifecycle for no reason (GUIDING-LIGHT §8.13). The build arg writes the
-     * VERSION file instead, which is the source of truth.
-     */
-    private function getVersion(): string
-    {
-        $versionFile = $this->getParameter('kernel.project_dir').'/VERSION';
-        if (file_exists($versionFile)) {
-            $version = trim(file_get_contents($versionFile));
-            if ('' !== $version && 'dev' !== $version) {
-                // Strip leading "v" if present, so the reported version is bare SemVer.
-                return str_starts_with($version, 'v') ? substr($version, 1) : $version;
-            }
-        }
-
-        return self::FALLBACK_VERSION;
     }
 }

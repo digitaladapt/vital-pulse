@@ -280,7 +280,7 @@ This starts the PHP server in a detached `screen` session named `vital-pulse` on
 
 ### Serving model
 
-A single PHP process serves the **entire** application — the static dashboard and the Symfony API alike. The front controller is `public/index.php`; static assets in `public/` are served directly by the web server. There is no separate build or copy step.
+A single PHP process serves the **entire** application. The dashboard is rendered by Symfony from a Twig template (`templates/dashboard/index.html.twig`, via `HomeController`); static assets in `public/` (`app.css`, `app.js`, the vendored chart libraries, icons) are served directly by the web server — Caddy's file server in the Docker image, PHP's built-in server in development — and never pass through PHP. There is no separate build or copy step.
 
 ### Caddy / FrankenPHP
 
@@ -301,6 +301,8 @@ cp docs/examples/.env.example host.env
 # Edit host.env: set API_KEY and APP_SECRET to strong random values
 docker compose up -d
 ```
+
+The release version is baked into the image at build time (CI passes it through `docker-bake.hcl` → `APP_VERSION` → `/app/VERSION`). `/api/about` and the dashboard footer report it; a build with no version falls back to `unknown`.
 
 ### run.sh / deploy.sh (legacy manual helpers)
 

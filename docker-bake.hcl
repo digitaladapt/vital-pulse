@@ -41,6 +41,18 @@ target "app" {
   cache-from = ["type=gha"]
   cache-to   = ["type=gha,mode=max"]
 
+  # Bake the version into the image. The Dockerfile's APP_VERSION build arg
+  # is written to /app/VERSION, which /api/about and the dashboard footer
+  # report. Without this, the arg stays at its "dev" default and /api/about
+  # falls back to "unknown" even though the image is tagged correctly — the
+  # tag on the registry and the version inside the container must agree.
+  #   tag push  → CI sets VERSION (v-stripped) and TAG=latest → real version
+  #   main push → CI sets TAG=develop → "develop"
+  #   local     → defaults → "latest"
+  args = {
+    APP_VERSION = VERSION != "" ? VERSION : TAG
+  }
+
   tags = concat(
     ["${DOCKERHUB_TARGET}:${TAG}"],
     VERSION != "" ? ["${DOCKERHUB_TARGET}:${VERSION}"] : [],

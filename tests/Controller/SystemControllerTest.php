@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Controller;
 
+use App\Service\AppVersion;
 use App\Tests\SchemaSetupTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
@@ -79,12 +80,12 @@ class SystemControllerTest extends WebTestCase
         // verify the flag is passed straight through to the response.
         $mockEm = $this->createMock(EntityManagerInterface::class);
 
-        $controller = new \App\Controller\SystemController($mockEm, true);
+        $controller = $this->makeController($mockEm, true);
         $controller->setContainer(static::getContainer());
         $data = json_decode($controller->about()->getContent(), true);
         self::assertTrue($data['reading_warnings_enabled']);
 
-        $controller = new \App\Controller\SystemController($mockEm, false);
+        $controller = $this->makeController($mockEm, false);
         $controller->setContainer(static::getContainer());
         $data = json_decode($controller->about()->getContent(), true);
         self::assertFalse($data['reading_warnings_enabled']);
@@ -120,14 +121,13 @@ class SystemControllerTest extends WebTestCase
 
     public function test_about_endpoint_route_only_allows_get(): void
     {
-        // The route is registered as GET-only. A POST falls through to the
-        // catch-all asset controller which returns 404 — not a 405, but
-        // certainly not a 200 either. The key assertion is that POST is
-        // not accepted as a valid method.
+        // The route is registered as GET-only. With the old catch-all asset
+        // controller gone, a POST now matches the route and gets a proper
+        // 405 Method Not Allowed instead of an anonymous 404.
         $client = $this->client;
         $client->request('POST', '/api/about');
 
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseStatusCodeSame(405);
     }
 
     // ── /health (liveness) and /ready (readiness) ────────────────
@@ -174,7 +174,7 @@ class SystemControllerTest extends WebTestCase
         $mockConnection->method('executeQuery')->willThrowException(new Exception('Database is down'));
         $mockEm->method('getConnection')->willReturn($mockConnection);
 
-        $controller = new \App\Controller\SystemController($mockEm, true);
+        $controller = $this->makeController($mockEm, true);
 
         self::assertSame(200, $controller->health()->getStatusCode());
     }
@@ -196,7 +196,7 @@ class SystemControllerTest extends WebTestCase
         $mockConnection->method('executeQuery')->willThrowException(new Exception('Database is down'));
         $mockEm->method('getConnection')->willReturn($mockConnection);
 
-        $controller = new \App\Controller\SystemController($mockEm, true);
+        $controller = $this->makeController($mockEm, true);
         $response = $controller->ready();
 
         self::assertSame(503, $response->getStatusCode());
@@ -254,12 +254,12 @@ class SystemControllerTest extends WebTestCase
 
     public function test_health_endpoint_route_only_allows_get(): void
     {
-        // Same as /api/about — GET-only route, POST falls through to the
-        // catch-all asset controller and returns 404.
+        // Same as /api/about — GET-only route. With the catch-all asset
+        // controller gone, a POST gets a proper 405 Method Not Allowed.
         $client = $this->client;
         $client->request('POST', '/api/health');
 
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseStatusCodeSame(405);
     }
 
     public function test_deprecated_api_health_alias_still_reports_database_failure(): void
@@ -279,12 +279,24 @@ class SystemControllerTest extends WebTestCase
         $mockConnection->method('executeQuery')->willThrowException(new Exception('Database is down'));
         $mockEm->method('getConnection')->willReturn($mockConnection);
 
-        $controller = new \App\Controller\SystemController($mockEm, true);
+        $controller = $this->makeController($mockEm, true);
         $response = $controller->healthDeprecated();
 
         self::assertSame(503, $response->getStatusCode());
         $data = json_decode($response->getContent(), true);
         self::assertSame('unhealthy', $data['status']);
         self::assertSame('Database connection failed', $data['error']);
+    }
+
+    /**
+     * The controller is constructed directly (mocked EM) rather than through
+     * the container; AppVersion comes from the real container so about()
+     * resolves the same version the kernel would.
+     */
+    private function makeController(EntityManagerInterface $em, bool $readingWarningsEnabled): \App\Controller\SystemController
+    {
+        $projectDir = (string) static::getContainer()->getParameter('kernel.project_dir');
+
+        return new \App\Controller\SystemController($em, $readingWarningsEnabled, new AppVersion($projectDir));
     }
 }

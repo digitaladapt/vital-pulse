@@ -634,3 +634,15 @@ function showStatus(msg, type) {
     el.className = type; // success or error
     if (type === 'success') setTimeout(() => { el.className = null; }, 3000);
 }
+
+// ── Service Worker ───────────────────────────────────────
+// Register the service worker — required for installability (§3.3b).
+// Guarded: an insecure context or an unsupporting browser must not
+// break the dashboard, which works perfectly well without it.
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch((err) => {
+            console.warn('Service worker registration failed:', err);
+        });
+    });
+}
